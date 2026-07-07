@@ -236,7 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
       modeEl.textContent = '你在屏幕下方布局 6 枚（首枚主将）；三 AI 大师自动布阵。';
     } else {
       if (typeEl) typeEl.textContent = '趣味局 — 反弹墙、陷洞、阻块与奇兵棋子。';
-      modeEl.textContent = '确认后将进入布局；不熟悉规则请先阅读主菜单「玩法引导」。';
+      modeEl.textContent = '确认后将进入布局；右侧可浏览本模式玩法指引。';
     }
   }
 
@@ -258,21 +258,19 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('active'));
         card.classList.add('active');
         updateModeDesc();
+        if (typeof ModeGuide !== 'undefined') ModeGuide.setMode(selectedPlayMode);
       });
     });
   }
   bindModeCards();
+  if (typeof ModeGuide !== 'undefined') ModeGuide.init();
 
   document.getElementById('btn-start').addEventListener('click', () => {
     Audio.resume();
     Audio.uiClick();
     Game.showScreen('mode-select');
     updateModeDesc();
-  });
-
-  document.getElementById('btn-guide').addEventListener('click', () => {
-    Audio.uiClick();
-    Guide.show();
+    if (typeof ModeGuide !== 'undefined') ModeGuide.setMode(selectedPlayMode);
   });
 
   document.getElementById('btn-culture').addEventListener('click', () => {

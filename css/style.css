@@ -195,6 +195,118 @@ html, body {
 /* ============ 模式选择 ============ */
 #mode-select {
   background: linear-gradient(160deg, #F3EBD8 0%, #EDE3CF 100%);
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.mode-select-layout {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 18px;
+  width: min(96vw, 920px);
+  max-height: min(94vh, 720px);
+}
+
+.mode-select-main {
+  flex: 0 1 420px;
+  max-width: 420px;
+  width: 100%;
+  max-height: min(94vh, 720px);
+  overflow-y: auto;
+}
+
+.mode-guide-panel {
+  flex: 1 1 340px;
+  min-width: 280px;
+  max-width: 440px;
+  max-height: min(94vh, 720px);
+  overflow-y: auto;
+  padding: 28px 26px 24px;
+}
+
+.mode-guide-panel::before {
+  inset: 6px;
+}
+
+.mode-guide-kicker {
+  margin: 0 0 4px;
+  font-size: 0.78rem;
+  letter-spacing: 0.2em;
+  text-align: center;
+  color: var(--ink-light);
+}
+
+.mode-guide-mode-label {
+  margin: 0 0 10px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-align: center;
+  color: var(--ink);
+}
+
+.mode-guide-panel h3 {
+  margin: 0 0 12px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-align: center;
+  color: var(--ink);
+}
+
+.mode-guide-nav {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.mode-guide-nav .btn-back {
+  flex: 0 0 auto;
+}
+
+.mode-guide-next-btn {
+  flex: 1;
+  padding: 10px 16px;
+  font-size: 0.9rem;
+  letter-spacing: 0.14em;
+}
+
+.mode-guide-next-btn.mode-guide-done {
+  opacity: 0.72;
+  cursor: default;
+}
+
+.mode-guide-panel .guide-art {
+  margin-bottom: 12px;
+}
+
+.mode-guide-panel .guide-svg {
+  max-height: min(36vh, 220px);
+}
+
+.mode-select-main .mode-cards {
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+@media (max-width: 720px) {
+  .mode-select-layout {
+    flex-direction: column;
+    align-items: center;
+    max-height: none;
+  }
+
+  .mode-select-main,
+  .mode-guide-panel {
+    max-width: min(92vw, 480px);
+    max-height: none;
+  }
+
+  .mode-guide-panel {
+    width: 100%;
+  }
 }
 
 .panel {
