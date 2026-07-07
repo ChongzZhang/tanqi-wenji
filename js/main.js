@@ -228,7 +228,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function updateModeDesc() {
     const modeEl = document.getElementById('mode-desc');
     if (!modeEl) return;
-    modeEl.textContent = '熟悉规则可点主菜单「玩法引导」；确认后进入布局。';
+    modeEl.textContent = '确认后将进入布局；不熟悉规则请先阅读主菜单「玩法引导」。';
   }
 
   function startSinglePlayerGame() {
@@ -245,7 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('btn-guide').addEventListener('click', () => {
     Audio.uiClick();
-    Guide.show(null);
+    Guide.show();
   });
 
   document.getElementById('btn-culture').addEventListener('click', () => {
@@ -262,10 +262,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-go').addEventListener('click', () => {
     Audio.uiClick();
     Audio.resume();
-    if (Guide.shouldAutoShow()) {
-      Guide.show(() => startSinglePlayerGame());
-      return;
-    }
     startSinglePlayerGame();
   });
 

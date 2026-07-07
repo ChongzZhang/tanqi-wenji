@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>弹棋问机 · 联机对战</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/style.css?v=6">
+  <link rel="stylesheet" href="css/style.css?v=7">
 </head>
 <body>
 
@@ -35,7 +35,7 @@
     <h2 class="panel-title">开始对弈</h2>
 
     <p class="ai-desc" id="type-desc">趣味局 — 反弹墙、陷洞、阻块与奇兵棋子。</p>
-    <p class="ai-desc" id="mode-desc">熟悉规则可点主菜单「玩法引导」；确认后进入布局。</p>
+    <p class="ai-desc" id="mode-desc">确认后将进入布局；不熟悉规则请先阅读主菜单「玩法引导」。</p>
 
     <div class="panel-row hidden" style="display:none;" aria-hidden="true">
       <button class="btn-toggle mode-btn active" data-mode="1P">单机对弈</button>
@@ -56,8 +56,10 @@
   <div class="guide-card" role="dialog" aria-modal="true" aria-labelledby="guide-title">
     <p class="guide-step-indicator" id="guide-step-indicator">1 / 5</p>
     <h2 id="guide-title">布局</h2>
+    <div id="guide-art" class="guide-art"></div>
     <div id="guide-body" class="guide-body"></div>
-    <p class="guide-hint">点击任意处继续</p>
+    <button type="button" id="guide-next" class="guide-next">下一步</button>
+    <p class="guide-hint">或点击空白处继续</p>
   </div>
 </div>
 
@@ -165,16 +167,17 @@
 </div>
 
 <script src="js/lib/matter.min.js"></script>
-<script src="js/data.js?v=2"></script>
+<script src="js/data.js?v=3"></script>
 <script src="js/audio.js"></script>
-<script src="js/guide.js?v=1"></script>
+<script src="js/guide-art.js?v=1"></script>
+<script src="js/guide.js?v=2"></script>
 <script src="js/physics.js?v=12"></script>
 <script src="js/renderer.js?v=10"></script>
 <script src="js/input.js?v=4"></script>
 <script src="js/ai.js?v=13"></script>
 <script src="js/online.js?v=18"></script>
 <script src="js/game.js?v=44"></script>
-<script src="js/main.js?v=24"></script>
+<script src="js/main.js?v=25"></script>
 
 </body>
 </html>
