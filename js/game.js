@@ -254,6 +254,10 @@ const Game = (() => {
     return canvas.clientHeight || window.innerHeight;
   }
 
+  function isFourWay() {
+    return state.matchMode === '4FFA';
+  }
+
   function syncGameplayCamera(immediate = false) {
     if (isFourWay()) Renderer.setCameraForFFA(immediate);
     else Renderer.setCameraOverview();
