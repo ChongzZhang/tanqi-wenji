@@ -903,9 +903,6 @@ const Game = (() => {
     const base = min + Math.floor(Math.random() * (randSpan + 1));
     return Math.max(min, Math.round(base * mult));
   }
-    const base = min + Math.floor(Math.random() * (randSpan + 1));
-    return Math.max(min, Math.round(base * mult));
-  }
 
   function setupRandomBoard() {
     const ffa = isFourWay();
