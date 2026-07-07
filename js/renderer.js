@@ -40,25 +40,25 @@ const Renderer = (() => {
 
   function getBoardTopScreenY() {
     const W = Physics.W;
-    const pts = [
-      [W.boardLeft, W.boardTop],
-      [W.boardRight, W.boardTop],
-      [W.boardLeft + W.boardSize * 0.25, W.boardTop],
-      [W.boardRight - W.boardSize * 0.25, W.boardTop],
-    ];
+    const pts = [];
+    for (let i = 0; i <= 12; i++) {
+      const wx = W.boardLeft + (W.boardSize * i) / 12;
+      pts.push([wx, W.boardTop]);
+    }
+    pts.push([W.centerX, W.boardTop - 4]);
     let minY = Infinity;
     for (const [wx, wy] of pts) {
       const sp = project(wx, wy, surfaceHeight(wx, wy));
       if (sp.y < minY) minY = sp.y;
     }
-    return minY;
+    return minY - worldToScreenLen(4);
   }
 
   function clampBoardBelowHud() {
     if (viewportInsetTop <= 0) return;
-    const slack = viewW() < 520 ? 22 : 28;
+    const slack = viewW() < 520 ? 32 : 44;
     const minTop = viewportInsetTop + slack;
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 16; i++) {
       const top = getBoardTopScreenY();
       if (top >= minTop) break;
       baseOffY += minTop - top;
@@ -71,7 +71,7 @@ const Renderer = (() => {
     const vh = viewH();
     const worldSpan = 510;
     const narrow = vw < 520 || vh < 520;
-    const edgePad = narrow ? 6 : 10;
+    const edgePad = narrow ? 8 : 14;
     const marginX = narrow ? 8 : 12;
     const marginTop = viewportInsetTop > 0 ? viewportInsetTop + edgePad : (narrow ? 8 : 12);
     const marginBottom = viewportInsetBottom > 0 ? viewportInsetBottom + edgePad : (narrow ? 8 : 12);
@@ -80,8 +80,10 @@ const Renderer = (() => {
       (vh - marginTop - marginBottom) / worldSpan
     );
     baseScale = Math.max(baseScale, 0.35);
-    if (narrow) baseScale *= 1.14;
-    else if (vw >= 720) baseScale *= 1.06;
+    if (viewportInsetTop <= 0) {
+      if (narrow) baseScale *= 1.14;
+      else if (vw >= 720) baseScale *= 1.06;
+    }
     baseOffX = (vw - worldSpan * baseScale) / 2;
     baseOffY = marginTop + (vh - marginTop - marginBottom - worldSpan * baseScale) / 2;
     clampBoardBelowHud();

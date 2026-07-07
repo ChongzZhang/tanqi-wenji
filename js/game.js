@@ -776,8 +776,8 @@ const Game = (() => {
 
     const scoreBottom = panelY + panelH;
     const turnBarH = mobile ? 28 : 32;
-    const turnBarY = scoreBottom + (mobile ? 6 : 8);
-    const hudBottom = turnBarY + turnBarH + (mobile ? 12 : 16);
+    const turnBarY = scoreBottom + (mobile ? 8 : 10);
+    const hudBottom = turnBarY + turnBarH + (mobile ? 36 : 48);
 
     return {
       W, H, mobile, sidePad, useSingleRow: wide,
@@ -793,7 +793,7 @@ const Game = (() => {
     const mobile = isMobileView();
     if (state.phase === 'playing') {
       const hud = hudLayoutMetrics();
-      Renderer.setViewportInsets(hud.hudBottom, mobile ? 26 : 34);
+      Renderer.setViewportInsets(hud.hudBottom, mobile ? 28 : 36);
       return;
     }
     if (state.phase !== 'layout') {
