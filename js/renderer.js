@@ -22,6 +22,12 @@ const Renderer = (() => {
   let baseOffX = 0, baseOffY = 0;
   let viewportInsetTop = 0;
   let viewportInsetBottom = 0;
+  let ffaViewMode = false;
+
+  function setFFAViewMode(on) {
+    ffaViewMode = !!on;
+    updateBaseTransform();
+  }
 
   function setViewportInsets(top, bottom) {
     viewportInsetTop = Math.max(0, top || 0);
@@ -41,17 +47,25 @@ const Renderer = (() => {
   function getBoardTopScreenY() {
     const W = Physics.W;
     const pts = [];
+    const corners = [
+      [W.boardLeft, W.boardTop],
+      [W.boardRight, W.boardTop],
+      [W.boardRight, W.boardBottom],
+      [W.boardLeft, W.boardBottom],
+      [W.centerX, W.centerY],
+    ];
     for (let i = 0; i <= 12; i++) {
       const wx = W.boardLeft + (W.boardSize * i) / 12;
       pts.push([wx, W.boardTop]);
     }
     pts.push([W.centerX, W.boardTop - 4]);
+    corners.forEach(c => pts.push(c));
     let minY = Infinity;
     for (const [wx, wy] of pts) {
       const sp = project(wx, wy, surfaceHeight(wx, wy));
       if (sp.y < minY) minY = sp.y;
     }
-    return minY - worldToScreenLen(4);
+    return minY - worldToScreenLen(ffaViewMode ? 8 : 4);
   }
 
   function clampBoardBelowHud() {
@@ -80,7 +94,9 @@ const Renderer = (() => {
       (vh - marginTop - marginBottom) / worldSpan
     );
     baseScale = Math.max(baseScale, 0.35);
-    if (viewportInsetTop <= 0) {
+    if (ffaViewMode) {
+      baseScale *= viewW() < 520 || viewH() < 520 ? 0.86 : 0.90;
+    } else if (viewportInsetTop <= 0) {
       if (narrow) baseScale *= 1.14;
       else if (vw >= 720) baseScale *= 1.06;
     }
@@ -259,6 +275,12 @@ const Renderer = (() => {
     cam.targetPitch = Math.max(PITCH_MIN, Math.min(PITCH_MAX, cam.targetPitch + dPitch));
   }
   function resetView() {
+    if (ffaViewMode) {
+      setCameraForFFA(true);
+      cam.targetZoom = 1;
+      cam.zoom = 1;
+      return;
+    }
     cam.targetYaw = 0;
     cam.targetPitch = 0.32;
     cam.targetZoom = 1;
@@ -277,6 +299,29 @@ const Renderer = (() => {
     cam.targetWx = 300;
     cam.targetWy = 300;
     cam.targetZoom = 1;
+    if (!ffaViewMode) {
+      cam.targetYaw = 0;
+      cam.targetPitch = 0.32;
+    }
+  }
+
+  /** 四方乱战：菱形视角（-45°），玩家区(白/左下)始终在屏幕下方 */
+  function setCameraForFFA(immediate = false) {
+    const yaw = (typeof Teams !== 'undefined' && Teams.FFA_CAMERA_YAW != null)
+      ? Teams.FFA_CAMERA_YAW
+      : -Math.PI / 4;
+    cam.targetWx = 300;
+    cam.targetWy = 300;
+    cam.targetZoom = 1;
+    cam.targetYaw = yaw;
+    cam.targetPitch = 0.32;
+    if (immediate) {
+      cam.wx = 300;
+      cam.wy = 300;
+      cam.zoom = 1;
+      cam.yaw = yaw;
+      cam.pitch = 0.32;
+    }
   }
 
   /** 双人对弈：当前行棋方一侧在屏幕下方（黑=0，白=π） */
@@ -1443,7 +1488,9 @@ const Renderer = (() => {
     rotateBy,
     resetView,
     setViewportInsets,
+    setFFAViewMode,
     setCameraOverview,
+    setCameraForFFA,
     setCameraForTurn,
     setCameraFollow,
     addCollisionParticles,

@@ -6,6 +6,8 @@ const Teams = (() => {
   const AI_TEAMS = ['black', 'red', 'blue'];
   const HUMAN_TEAM = 'white';
   const PIECES_PER_TEAM = 6;
+  /** 菱形视角偏航：白方(左下象限)始终在屏幕下方 */
+  const FFA_CAMERA_YAW = -Math.PI / 4;
 
   const DEFS = {
     black: {
@@ -146,6 +148,7 @@ const Teams = (() => {
     AI_TEAMS,
     HUMAN_TEAM,
     PIECES_PER_TEAM,
+    FFA_CAMERA_YAW,
     getName,
     getLayoutZone,
     isInLayoutZone,

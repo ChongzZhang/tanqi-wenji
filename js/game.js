@@ -254,8 +254,9 @@ const Game = (() => {
     return canvas.clientHeight || window.innerHeight;
   }
 
-  function isFourWay() {
-    return state.matchMode === '4FFA';
+  function syncGameplayCamera(immediate = false) {
+    if (isFourWay()) Renderer.setCameraForFFA(immediate);
+    else Renderer.setCameraOverview();
   }
 
   function isAiTeam(team) {
@@ -762,7 +763,7 @@ const Game = (() => {
           snapCam
         );
       } else {
-        Renderer.setCameraOverview();
+        syncGameplayCamera();
       }
 
       if (state.subPhase === 'moving') {
@@ -1268,6 +1269,7 @@ const Game = (() => {
   // ===== 开始新游戏 =====
   function startGame(mode, aiLevel, boardSkin, pieceSkin, gameType) {
     state.matchMode = '2P';
+    Renderer.setFFAViewMode(false);
     state.mode     = mode     || '2P';
     state.gameType = gameType || 'classic';
     state.aiLevel  = aiLevel  || 2;
@@ -1302,6 +1304,7 @@ const Game = (() => {
 
   function startFourWayGame(boardSkin, pieceSkin) {
     state.matchMode = '4FFA';
+    Renderer.setFFAViewMode(true);
     state.mode = '1P';
     state.gameType = 'fun';
     state.aiLevel = 2;
@@ -1458,7 +1461,8 @@ const Game = (() => {
     state.layoutTeam = team;
     state.layoutPlaced = Physics.getPieces().filter(p => p.gameTeam === team).length;
     state._confirmBtnRect = null;
-    Renderer.setCameraOverview();
+    if (isFourWay()) Renderer.setCameraForFFA(true);
+    else Renderer.setCameraOverview();
 
     if (isFourWay() && isAiTeam(team)) {
       autoLayoutTeam(team);
@@ -1513,16 +1517,19 @@ const Game = (() => {
     state.selectedPiece = null;
     state.movingPiece = null;
     syncOnlinePhysicsMode();
-    Renderer.setCameraOverview();
     if (isFourWay()) {
-      Renderer.setCameraForTurn(state.humanTeam, true);
+      Renderer.setCameraForFFA(true);
     } else if (state.mode === '2P') {
+      Renderer.setCameraOverview();
       Renderer.setCameraForTurn('black', true);
     } else if (state.mode === 'ONLINE') {
+      Renderer.setCameraOverview();
       Renderer.setCameraForTurn(state.onlineMyTeam, true);
       Online.markInMatch(true);
       persistLocalMatch();
       updateOnlineGameControls();
+    } else {
+      Renderer.setCameraOverview();
     }
     startTimer();
 
@@ -1568,7 +1575,7 @@ const Game = (() => {
   function onPiecesStopped() {
     if (state.mode === 'ONLINE') return;
     state.movingPiece = null;
-    Renderer.setCameraOverview();
+    syncGameplayCamera();
 
     if (isFourWay() && state.eliminated.has(state.currentTurn)) {
       state.stats[state.currentTurn].combo = 0;
@@ -1620,10 +1627,7 @@ const Game = (() => {
       if (!next || checkFFAWinCondition()) return;
       state.currentTurn = next;
       state.selectedPiece = null;
-      Renderer.setCameraOverview();
-      if (state.currentTurn === state.humanTeam) {
-        Renderer.setCameraForTurn(state.humanTeam, true);
-      }
+      syncGameplayCamera();
       startTimer();
       if (isAiTeam(state.currentTurn)) scheduleAIMove();
       return;
@@ -2093,7 +2097,7 @@ const Game = (() => {
       ? '已确认布局，等待对方…'
       : `${teamLabel}布局  已置 ${placed} / 6${placed === 0 ? '（首枚为主将）' : ''}`;
     const msg2 = isFourWay()
-      ? '在左下角四分之一区域摆子；首枚为主将（皇冠标记）'
+      ? '在屏幕下方区域摆子（首枚为主将，顶标皇冠）'
       : (state.mode === 'ONLINE'
         ? '联机盲布局：对方棋子不可见，请在自己区域摆子'
         : '点击棋盘己方区域放置棋子');

@@ -233,7 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!modeEl) return;
     if (selectedPlayMode === 'ffa') {
       if (typeEl) typeEl.textContent = '四方乱战 — 四角布局，主将带皇冠；击落空主将可收编该方全部棋子。';
-      modeEl.textContent = '你在左下角（白方）布局 6 枚，首枚为主将；黑/红/蓝三 AI 自动布阵。';
+      modeEl.textContent = '你在屏幕下方区域布局 6 枚，首枚为主将；黑/红/蓝三 AI 自动布阵。';
     } else {
       if (typeEl) typeEl.textContent = '趣味局 — 反弹墙、陷洞、阻块与奇兵棋子。';
       modeEl.textContent = '确认后将进入布局；不熟悉规则请先阅读主菜单「玩法引导」。';
