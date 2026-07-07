@@ -219,8 +219,8 @@ const GuideArt = (() => {
             ${piece(160, 210, '#e8e0d0', '#6a5040')}
           `)}
         </g>
-        <text x="160" y="292" text-anchor="middle" font-size="9" fill="#2a6a2a" font-family="serif">墙+30% · 阻块+40%</text>
-        <text x="160" y="306" text-anchor="middle" font-size="9" fill="#333" font-family="serif">陷洞不变 · 一入即出局</text>
+        <text x="160" y="292" text-anchor="middle" font-size="9" fill="#555" font-family="serif">障碍 1～3 · 同单挑</text>
+        <text x="160" y="306" text-anchor="middle" font-size="9" fill="#2a6a2a" font-family="serif">墙+30% · 阻块+40% · 陷洞出局</text>
       </svg>`,
 
     'ffa-view': () => `

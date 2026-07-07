@@ -1474,6 +1474,7 @@ const Game = (() => {
     pcs.forEach(p => {
       p.special = null;
       p.isGeneral = false;
+      Physics.applyPieceMass(p);
     });
     if (isFourWay()) {
       if (pcs.length >= 1) pcs[0].isGeneral = true;
@@ -1568,6 +1569,7 @@ const Game = (() => {
   }
 
   function beginGame() {
+    Physics.getPieces().forEach(p => Physics.applyPieceMass(p));
     state.phase = 'playing';
     state.subPhase = 'waiting';
     state.currentTurn = isFourWay() ? state.humanTeam : 'black';

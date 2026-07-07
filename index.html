@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>弹棋问机 · 联机对战</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/style.css?v=10">
+  <link rel="stylesheet" href="css/style.css?v=11">
 </head>
 <body>
 
@@ -31,7 +31,12 @@
 <!-- ============ 模式选择 ============ -->
 <div id="mode-select" class="screen hidden">
   <div class="mode-select-layout">
-    <div class="panel mode-select-main">
+    <div class="mode-select-tabs" role="tablist" aria-label="模式与指引">
+      <button type="button" id="mode-tab-play" class="mode-tab active" role="tab" aria-selected="true" aria-controls="mode-select-main">选择玩法</button>
+      <button type="button" id="mode-tab-guide" class="mode-tab" role="tab" aria-selected="false" aria-controls="mode-guide-panel">玩法指引<span class="mode-tab-guide-hint">必读</span></button>
+    </div>
+
+    <div id="mode-select-main" class="panel mode-select-main mode-panel-view active" data-mode-view="play">
       <h2 class="panel-title">选择玩法</h2>
 
       <div class="mode-cards">
@@ -60,7 +65,7 @@
       </div>
     </div>
 
-    <aside class="panel mode-guide-panel" aria-label="玩法指引">
+    <aside id="mode-guide-panel" class="panel mode-guide-panel mode-panel-view" data-mode-view="guide" aria-label="玩法指引">
       <p class="mode-guide-kicker">玩法指引</p>
       <p class="mode-guide-mode-label" id="mode-guide-label">单挑大师</p>
       <p class="guide-step-indicator" id="mode-guide-indicator">1 / 5</p>
@@ -179,18 +184,18 @@
 </div>
 
 <script src="js/lib/matter.min.js"></script>
-<script src="js/data.js?v=5"></script>
-<script src="js/teams.js?v=6"></script>
+<script src="js/data.js?v=7"></script>
+<script src="js/teams.js?v=7"></script>
 <script src="js/audio.js"></script>
-<script src="js/guide-art.js?v=2"></script>
+<script src="js/guide-art.js?v=3"></script>
 <script src="js/guide.js?v=3"></script>
-<script src="js/physics.js?v=15"></script>
+<script src="js/physics.js?v=16"></script>
 <script src="js/renderer.js?v=14"></script>
 <script src="js/input.js?v=6"></script>
 <script src="js/ai.js?v=14"></script>
 <script src="js/online.js?v=18"></script>
-<script src="js/game.js?v=52"></script>
-<script src="js/main.js?v=30"></script>
+<script src="js/game.js?v=53"></script>
+<script src="js/main.js?v=31"></script>
 
 </body>
 </html>

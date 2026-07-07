@@ -10,7 +10,9 @@ const Teams = (() => {
   const FFA_WALL_LEN_MULT = 1.3;
   const FFA_OBJECT_MULT = 1.4;
   /** 主将质量倍率（半径不变，惯性更大、更难推动） */
-  const GENERAL_MASS_MULT = 1.2;
+  const GENERAL_MASS_MULT = 2.0;
+  /** 主将弹射初速倍率（相对普通棋子，越小越难弹远） */
+  const GENERAL_FLING_MULT = 0.52;
   /** 四国混战 AI 固定使用大师（id=2） */
   const MASTER_AI_LEVEL = 2;
   /** 菱形视角偏航：白方(左下象限)始终在屏幕下方 */
@@ -166,6 +168,7 @@ const Teams = (() => {
     FFA_WALL_LEN_MULT,
     FFA_OBJECT_MULT,
     GENERAL_MASS_MULT,
+    GENERAL_FLING_MULT,
     emptyKillByVictim,
     MASTER_AI_LEVEL,
     FFA_CAMERA_YAW,

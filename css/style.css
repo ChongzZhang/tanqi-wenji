@@ -209,8 +209,51 @@ html, body {
   align-items: stretch;
 }
 
+.mode-select-tabs {
+  display: none;
+  width: 100%;
+  max-width: min(96vw, 920px);
+  margin: 0 auto 10px;
+  gap: 8px;
+  padding: 0 2px;
+}
+
+.mode-tab {
+  flex: 1;
+  padding: 10px 8px;
+  border: 1.5px solid rgba(140, 90, 20, 0.45);
+  border-radius: 4px;
+  background: rgba(245, 232, 200, 0.65);
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--ink-mid);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.mode-tab.active {
+  background: linear-gradient(135deg, #4a2008, #6a3010);
+  border-color: var(--gold);
+  color: var(--gold-light);
+}
+
+.mode-tab-guide-hint {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: rgba(200, 120, 20, 0.22);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  vertical-align: middle;
+}
+
 .mode-select-layout {
   display: flex;
+  flex-wrap: wrap;
   align-items: stretch;
   justify-content: center;
   gap: 18px;
@@ -218,6 +261,10 @@ html, body {
   max-width: min(96vw, 920px);
   margin: 0 auto;
   flex: 0 0 auto;
+}
+
+.mode-select-tabs {
+  flex: 1 1 100%;
 }
 
 #mode-select .panel {
@@ -316,11 +363,23 @@ html, body {
     padding-bottom: max(12px, env(safe-area-inset-bottom, 12px));
   }
 
+  .mode-select-tabs {
+    display: flex;
+  }
+
   .mode-select-layout {
     flex-direction: column;
     align-items: stretch;
-    gap: 10px;
+    gap: 0;
     max-width: 100%;
+  }
+
+  .mode-panel-view {
+    display: none;
+  }
+
+  .mode-panel-view.active {
+    display: block;
   }
 
   .mode-select-main,
@@ -373,6 +432,12 @@ html, body {
   .mode-guide-next-btn {
     padding: 8px 10px;
     font-size: 0.84rem;
+  }
+}
+
+@media (min-width: 721px) {
+  .mode-panel-view {
+    display: block;
   }
 }
 

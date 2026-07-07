@@ -47,18 +47,29 @@ const Physics = (() => {
   const SPEED_MULT = 1.5;          // 疾行棋速度倍率
 
   function generalMassMult() {
-    return (typeof Teams !== 'undefined' && Teams.GENERAL_MASS_MULT) || 1.2;
+    return (typeof Teams !== 'undefined' && Teams.GENERAL_MASS_MULT) || 2.0;
+  }
+
+  function generalFlingMult() {
+    return (typeof Teams !== 'undefined' && Teams.GENERAL_FLING_MULT) || 0.52;
+  }
+
+  /** 坡面力场按普通棋子质量计算，避免主将因更重而被地形推得更远 */
+  function fieldForceMass(body) {
+    return body.isGeneral ? 1.0 : body.mass;
   }
 
   function applyPieceMass(body) {
     if (!body || body.label === 'obstacle') return;
     const m = body.isGeneral ? generalMassMult() : 1.0;
     Matter.Body.setMass(body, m);
+    body.friction = body.isGeneral ? 0.014 : 0.005;
+    body.frictionAir = body.isGeneral ? 0.014 : 0;
   }
 
   function flingSpeedScale(body) {
     const speedMult = body.special === 'speed' ? SPEED_MULT : 1;
-    const generalMult = body.isGeneral ? (1 / generalMassMult()) : 1;
+    const generalMult = body.isGeneral ? generalFlingMult() : 1;
     return W.FLING_SPEED_SCALE * speedMult * generalMult;
   }
 
@@ -132,7 +143,7 @@ const Physics = (() => {
       const dist = Math.hypot(dx, dy);
       if (dist < W.domeRadius && dist > 0.5) {
         const slope = 2 * dist / (W.domeRadius * W.domeRadius);
-        const fMag = W.DOME_FORCE_SCALE * slope * body.mass;
+        const fMag = W.DOME_FORCE_SCALE * slope * fieldForceMass(body);
         Matter.Body.applyForce(body, pos, { x: (dx / dist) * fMag, y: (dy / dist) * fMag });
       }
     }
@@ -144,7 +155,7 @@ const Physics = (() => {
       const dist = Math.hypot(dx, dy);
       if (dist < W.cornerBulgeRadius && dist > 0.5) {
         const slope = 2 * dist / (W.cornerBulgeRadius * W.cornerBulgeRadius);
-        const fMag = W.CORNER_FORCE_SCALE * slope * body.mass;
+        const fMag = W.CORNER_FORCE_SCALE * slope * fieldForceMass(body);
         Matter.Body.applyForce(body, pos, { x: (dx / dist) * fMag, y: (dy / dist) * fMag });
       }
     }
@@ -154,7 +165,7 @@ const Physics = (() => {
       // 速度方向 (vx,vy) 的「左侧」法向量（世界 y 向下：左转法向为 (vy,-vx)）
       const nx = vel.y / speed;
       const ny = -vel.x / speed;
-      const fMag = CURVE_FORCE_SCALE * speed * body.mass;
+      const fMag = CURVE_FORCE_SCALE * speed * fieldForceMass(body);
       Matter.Body.applyForce(body, pos, { x: nx * fMag, y: ny * fMag });
     }
 
@@ -402,7 +413,7 @@ const Physics = (() => {
         const dist = Math.hypot(dx, dy);
         if (dist < W.domeRadius && dist > 0.5) {
           const slope = 2 * dist / (W.domeRadius * W.domeRadius);
-          const fMag = W.DOME_FORCE_SCALE * slope * body.mass;
+          const fMag = W.DOME_FORCE_SCALE * slope * fieldForceMass(body);
           Matter.Body.applyForce(body, pos, { x: (dx / dist) * fMag, y: (dy / dist) * fMag });
         }
       }
@@ -413,7 +424,7 @@ const Physics = (() => {
         const dist = Math.hypot(dx, dy);
         if (dist < W.cornerBulgeRadius && dist > 0.5) {
           const slope = 2 * dist / (W.cornerBulgeRadius * W.cornerBulgeRadius);
-          const fMag = W.CORNER_FORCE_SCALE * slope * body.mass;
+          const fMag = W.CORNER_FORCE_SCALE * slope * fieldForceMass(body);
           Matter.Body.applyForce(body, pos, { x: (dx / dist) * fMag, y: (dy / dist) * fMag });
         }
       }
@@ -421,7 +432,7 @@ const Physics = (() => {
       if (body.special === 'curve' && speed > W.REST_SPEED) {
         const nx = vel.y / speed;
         const ny = -vel.x / speed;
-        const fMag = CURVE_FORCE_SCALE * speed * body.mass;
+        const fMag = CURVE_FORCE_SCALE * speed * fieldForceMass(body);
         Matter.Body.applyForce(body, pos, { x: nx * fMag, y: ny * fMag });
       }
 

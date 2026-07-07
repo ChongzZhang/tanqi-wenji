@@ -231,16 +231,59 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let selectedPlayMode = 'duel';
 
+  function isModeSelectMobile() {
+    return window.matchMedia('(max-width: 720px)').matches;
+  }
+
+  function showModeView(view) {
+    const playTab = document.getElementById('mode-tab-play');
+    const guideTab = document.getElementById('mode-tab-guide');
+    document.querySelectorAll('.mode-panel-view').forEach(el => {
+      el.classList.toggle('active', el.dataset.modeView === view);
+    });
+    if (playTab) {
+      playTab.classList.toggle('active', view === 'play');
+      playTab.setAttribute('aria-selected', view === 'play' ? 'true' : 'false');
+    }
+    if (guideTab) {
+      guideTab.classList.toggle('active', view === 'guide');
+      guideTab.setAttribute('aria-selected', view === 'guide' ? 'true' : 'false');
+    }
+    if (view === 'guide' && typeof ModeGuide !== 'undefined') ModeGuide.renderStep();
+  }
+
+  function bindModeTabs() {
+    const playTab = document.getElementById('mode-tab-play');
+    const guideTab = document.getElementById('mode-tab-guide');
+    if (playTab) {
+      playTab.addEventListener('click', () => {
+        Audio.uiClick();
+        showModeView('play');
+      });
+    }
+    if (guideTab) {
+      guideTab.addEventListener('click', () => {
+        Audio.uiClick();
+        showModeView('guide');
+      });
+    }
+  }
+
   function updateModeDesc() {
     const modeEl = document.getElementById('mode-desc');
     const typeEl = document.getElementById('type-desc');
+    const mobile = isModeSelectMobile();
     if (!modeEl) return;
     if (selectedPlayMode === 'ffa') {
       if (typeEl) typeEl.textContent = '四方乱战 — 黑/红/蓝三 AI 均为大师级推演；主将落盘即出局并收编。';
-      modeEl.textContent = '你在屏幕下方布局 6 枚（首枚主将）；三 AI 大师自动布阵。';
+      modeEl.textContent = mobile
+        ? '首枚为主将（皇冠）；点上方「玩法指引」查看规则。'
+        : '你在屏幕下方布局 6 枚（首枚主将）；右侧可浏览玩法指引。';
     } else {
       if (typeEl) typeEl.textContent = '趣味局 — 反弹墙、陷洞、阻块与奇兵棋子。';
-      modeEl.textContent = '确认后将进入布局；右侧可浏览本模式玩法指引。';
+      modeEl.textContent = mobile
+        ? '确认后进入布局；点上方「玩法指引」查看规则。'
+        : '确认后将进入布局；右侧可浏览本模式玩法指引。';
     }
   }
 
@@ -267,6 +310,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   bindModeCards();
+  bindModeTabs();
   if (typeof ModeGuide !== 'undefined') ModeGuide.init();
 
   document.getElementById('btn-start').addEventListener('click', () => {
@@ -275,6 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
     Game.showScreen('mode-select');
     updateModeDesc();
     if (typeof ModeGuide !== 'undefined') ModeGuide.setMode(selectedPlayMode);
+    showModeView(isModeSelectMobile() ? 'guide' : 'play');
   });
 
   document.getElementById('btn-culture').addEventListener('click', () => {
