@@ -144,6 +144,8 @@ const Game = (() => {
     _comboBtnRects: null,
     _confirmBtnRect: null,
     _gameoverBtns: null,
+    _killStatsExpanded: false,
+    _killStatsToggleRect: null,
 
     replayData: [],
     dt: 0.016,
@@ -872,16 +874,43 @@ const Game = (() => {
     }
   }
 
+  function createStatEntry() {
+    return {
+      shots: 0, hits: 0, maxCombo: 0, combo: 0,
+      kills: 0,
+      killByVictim: Teams.emptyKillByVictim(),
+    };
+  }
+
+  function ensureStatTeam(team) {
+    if (!state.stats[team]) state.stats[team] = createStatEntry();
+    if (!state.stats[team].killByVictim) state.stats[team].killByVictim = Teams.emptyKillByVictim();
+  }
+
+  function recordKill(killer, victimTeam) {
+    if (!killer || !victimTeam || killer === victimTeam) return;
+    ensureStatTeam(killer);
+    const s = state.stats[killer];
+    s.kills = (s.kills || 0) + 1;
+    s.killByVictim[victimTeam] = (s.killByVictim[victimTeam] || 0) + 1;
+  }
+
+  function killStatTeams() {
+    return isFourWay() ? Teams.TURN_ORDER : ['black', 'white'];
+  }
+
   function ffaScaledCount(min, randSpan, mult) {
+    const base = min + Math.floor(Math.random() * (randSpan + 1));
+    return Math.max(min, Math.round(base * mult));
+  }
     const base = min + Math.floor(Math.random() * (randSpan + 1));
     return Math.max(min, Math.round(base * mult));
   }
 
   function setupRandomBoard() {
     const ffa = isFourWay();
-    const objMult = ffa ? Teams.FFA_OBJECT_MULT : 1;
     const obsCount = ffa
-      ? ffaScaledCount(1, 2, objMult)
+      ? ffaScaledCount(1, 2, Teams.FFA_OBSTACLE_MULT)
       : 1 + Math.floor(Math.random() * 3);
     const ww = Physics.W;
     const placed = [];
@@ -1151,8 +1180,8 @@ const Game = (() => {
     state.layoutConfirmed = { black: false, white: false };
     state.replayData = [];
     state.stats = {
-      black: { shots: 0, hits: 0, maxCombo: 0, combo: 0 },
-      white: { shots: 0, hits: 0, maxCombo: 0, combo: 0 },
+      black: createStatEntry(),
+      white: createStatEntry(),
     };
     Physics.reset();
   }
@@ -1306,8 +1335,8 @@ const Game = (() => {
     state.layoutConfirmed = { black: false, white: false };
     state.replayData = [];
     state.stats = {
-      black: { shots: 0, hits: 0, maxCombo: 0, combo: 0 },
-      white: { shots: 0, hits: 0, maxCombo: 0, combo: 0 },
+      black: createStatEntry(),
+      white: createStatEntry(),
     };
 
     Physics.reset();
@@ -1337,7 +1366,7 @@ const Game = (() => {
     state.blackScore = 0;
     state.whiteScore = 0;
     state.winner = null;
-    state.currentTurn = Teams.TURN_ORDER[0];
+    state.currentTurn = Teams.HUMAN_TEAM;
     state.layoutConfirmed = Teams.initLayoutConfirmed();
     state.replayData = [];
     state.stats = Teams.initStats();
@@ -1396,8 +1425,8 @@ const Game = (() => {
       }
     }
 
-    // —— 陷洞：四国模式数量 +40% ——
-    const holeCount = ffa ? ffaScaledCount(2, 0, objMult) : 2;
+    // —— 陷洞：固定 2 个（四国模式也不增加）——
+    const holeCount = 2;
     const holeR = ww.pieceRadius * 2;
     for (let i = 0; i < holeCount; i++) {
       for (let t = 0; t < 60; t++) {
@@ -1723,6 +1752,10 @@ const Game = (() => {
     Physics.removePiece(body);
     Audio.pieceFall();
 
+    if (eliminator !== fallenTeam) {
+      recordKill(eliminator, fallenTeam);
+    }
+
     if (!state.eliminated.has(fallenTeam)) {
       state.eliminated.add(fallenTeam);
       if (eliminator !== fallenTeam && teamHasPieces(fallenTeam)) {
@@ -1753,6 +1786,7 @@ const Game = (() => {
 
     if (fallenTeam !== state.currentTurn) {
       state.scoredThisTurn = true;
+      recordKill(state.currentTurn, fallenTeam);
     }
 
     Renderer.addFallAnimation(fallX, fallY, fallenTeam);
@@ -1784,9 +1818,9 @@ const Game = (() => {
     if (fallenTeam === 'black') state.whiteScore++;
     else state.blackScore++;
 
-    // 把对方棋子打下盘 → 触发连击（在 onPiecesStopped 中判定）
     if (state.phase === 'playing' && fallenTeam !== state.currentTurn) {
       state.scoredThisTurn = true;
+      recordKill(state.currentTurn, fallenTeam);
     }
 
     Renderer.addFallAnimation(fallX, fallY, fallenTeam);
@@ -1814,6 +1848,8 @@ const Game = (() => {
     state.phase = 'gameover';
     state.subPhase = 'waiting';
     state.winner = team;
+    state._killStatsExpanded = false;
+    state._killStatsToggleRect = null;
     state.timerPaused = false;
     state.peerAway = false;
     if (state.mode === 'ONLINE') {
@@ -2275,6 +2311,11 @@ const Game = (() => {
       ['终局之得', state.blackScore,            state.whiteScore],
     ];
 
+    const killTeams = killStatTeams();
+    const hKillToggle = rowH;
+    const hKillDetail = state._killStatsExpanded ? rowH + killTeams.length * rowH : 0;
+    const gapKill = 14 * u;
+
     // ---- 计算各区块高度，得到面板总高 ----
     const padTop = 34 * u;
     const hTitle = titleFs;
@@ -2285,10 +2326,11 @@ const Game = (() => {
     const gap3   = 20 * u;
     const hStatsHead = rowH;
     const hStats = rows.length * rowH;
-    const gap4   = 26 * u;
+    const gap4   = 18 * u;
     const hBtns  = btnH;
     const padBot = 32 * u;
-    const ph = padTop + hTitle + gap1 + hPoem + gap2 + hDiv + gap3 + hStatsHead + hStats + gap4 + hBtns + padBot;
+    const ph = padTop + hTitle + gap1 + hPoem + gap2 + hDiv + gap3 + hStatsHead + hStats
+      + gap4 + hKillToggle + hKillDetail + gapKill + hBtns + padBot;
 
     const px = W / 2 - pw / 2;
     const py = H / 2 - ph / 2;
@@ -2399,6 +2441,76 @@ const Game = (() => {
     ctx.textBaseline = 'alphabetic';
     y += gap4;
 
+    // ---- 击杀统计（点击展开/收起）----
+    const killBarX = px + padX * 0.5;
+    const killBarW = pw - padX;
+    const killToggleY = y;
+    ctx.fillStyle = state._killStatsExpanded ? 'rgba(170,52,38,0.1)' : 'rgba(150,118,60,0.08)';
+    roundRect2(ctx, killBarX, killToggleY, killBarW, hKillToggle, 6 * u);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(140,90,20,0.45)';
+    ctx.lineWidth = 1 * u;
+    roundRect2(ctx, killBarX, killToggleY, killBarW, hKillToggle, 6 * u);
+    ctx.stroke();
+
+    const totalKills = killTeams.reduce((sum, t) => sum + (state.stats[t]?.kills || 0), 0);
+    const toggleLabel = state._killStatsExpanded
+      ? `击杀统计  ·  点击收起  ▲  （共 ${totalKills}）`
+      : `击杀统计  ·  点击展开  ▼  （共 ${totalKills}）`;
+    ctx.font = `${statFs}px "Noto Serif SC", serif`;
+    ctx.fillStyle = '#4A3018';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(toggleLabel, cx, killToggleY + hKillToggle / 2);
+    ctx.textBaseline = 'alphabetic';
+    state._killStatsToggleRect = { x: killBarX, y: killToggleY, w: killBarW, h: hKillToggle };
+    y += hKillToggle;
+
+    if (state._killStatsExpanded) {
+      const colStart = px + padX + 4 * u;
+      const colW = (pw - padX * 2 - 8 * u) / (killTeams.length + 2);
+      ry = y + rowH / 2;
+      ctx.font = `bold ${Math.round(statFs * 0.88)}px "Noto Serif SC", serif`;
+      ctx.fillStyle = '#8A6A3A';
+      ctx.textAlign = 'left';
+      ctx.fillText('击杀方', colStart, ry);
+      killTeams.forEach((vt, i) => {
+        const shortName = isFourWay() ? Teams.getName(vt).charAt(0) : (vt === 'black' ? '黑' : '白');
+        ctx.textAlign = 'center';
+        ctx.fillText(shortName, colStart + colW * (i + 1.2), ry);
+      });
+      ctx.textAlign = 'center';
+      ctx.fillText('计', colStart + colW * (killTeams.length + 1.5), ry);
+      y += rowH;
+
+      killTeams.forEach((kt, ri) => {
+        ry = y + rowH / 2;
+        if (ri % 2 === 0) {
+          ctx.fillStyle = 'rgba(150,118,60,0.06)';
+          ctx.fillRect(killBarX, y, killBarW, rowH);
+        }
+        ensureStatTeam(kt);
+        const kbv = state.stats[kt].killByVictim || {};
+        const total = state.stats[kt].kills || 0;
+        ctx.fillStyle = kt === state.winner ? '#A2341E' : '#4A3018';
+        ctx.font = `${statFs}px "Noto Serif SC", serif`;
+        ctx.textAlign = 'left';
+        const kName = isFourWay() ? Teams.getName(kt) : (kt === 'black' ? '黑方' : '白方');
+        ctx.fillText(kName, colStart, ry);
+        killTeams.forEach((vt, i) => {
+          const n = kt === vt ? '—' : String(kbv[vt] || 0);
+          ctx.textAlign = 'center';
+          ctx.fillStyle = kt === vt ? '#999' : ((kbv[vt] || 0) > 0 ? '#4A3018' : '#aaa');
+          ctx.fillText(n, colStart + colW * (i + 1.2), ry);
+        });
+        ctx.textAlign = 'center';
+        ctx.fillStyle = total > 0 ? '#A2341E' : '#888';
+        ctx.fillText(String(total), colStart + colW * (killTeams.length + 1.5), ry);
+        y += rowH;
+      });
+    }
+    y += gapKill;
+
     // ---- 按钮（两枚）----
     const bgap = 16 * u;
     const btnW = (pw - padX * 2 - bgap) / 2;
@@ -2489,13 +2601,23 @@ const Game = (() => {
       }
     }
     // 结局按钮
-    if (state.phase === 'gameover' && state._gameoverBtns) {
+    if (state.phase === 'gameover') {
+      if (state._killStatsToggleRect) {
+        const r = state._killStatsToggleRect;
+        if (sx >= r.x && sx <= r.x + r.w && sy >= r.y && sy <= r.y + r.h) {
+          Audio.uiClick();
+          state._killStatsExpanded = !state._killStatsExpanded;
+          return;
+        }
+      }
+      if (state._gameoverBtns) {
       const { restart, menu } = state._gameoverBtns;
       if (sx >= restart.x && sx <= restart.x + restart.w && sy >= restart.y && sy <= restart.y + restart.h) {
         Audio.uiClick(); showModeSelect(); return;
       }
       if (sx >= menu.x && sx <= menu.x + menu.w && sy >= menu.y && sy <= menu.y + menu.h) {
         Audio.uiClick(); showMainMenu(); return;
+      }
       }
     }
   }

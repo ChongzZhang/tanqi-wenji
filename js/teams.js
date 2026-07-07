@@ -6,9 +6,10 @@ const Teams = (() => {
   const AI_TEAMS = ['black', 'red', 'blue'];
   const HUMAN_TEAM = 'white';
   const PIECES_PER_TEAM = 6;
-  /** 四国混战：边界反弹墙总长 +30%，场中随机物件 +40% */
+  /** 四国混战：边界反弹墙总长 +30%，阻块等 +40%，障碍 ×3，陷洞不变 */
   const FFA_WALL_LEN_MULT = 1.3;
   const FFA_OBJECT_MULT = 1.4;
+  const FFA_OBSTACLE_MULT = 3;
   /** 四国混战 AI 固定使用大师（id=2） */
   const MASTER_AI_LEVEL = 2;
   /** 菱形视角偏航：白方(左下象限)始终在屏幕下方 */
@@ -139,10 +140,18 @@ const Teams = (() => {
     return { black: false, white: false, red: false, blue: false };
   }
 
+  function emptyKillByVictim() {
+    return { black: 0, red: 0, blue: 0, white: 0 };
+  }
+
   function initStats() {
     const stats = {};
     TURN_ORDER.forEach(t => {
-      stats[t] = { shots: 0, hits: 0, maxCombo: 0, combo: 0 };
+      stats[t] = {
+        shots: 0, hits: 0, maxCombo: 0, combo: 0,
+        kills: 0,
+        killByVictim: emptyKillByVictim(),
+      };
     });
     return stats;
   }
@@ -155,6 +164,8 @@ const Teams = (() => {
     PIECES_PER_TEAM,
     FFA_WALL_LEN_MULT,
     FFA_OBJECT_MULT,
+    FFA_OBSTACLE_MULT,
+    emptyKillByVictim,
     MASTER_AI_LEVEL,
     FFA_CAMERA_YAW,
     getName,
