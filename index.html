@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>弹棋问机 · 联机对战</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/style.css?v=5">
+</head>
+<body>
+
+<!-- ============ 主菜单 ============ -->
+<div id="main-menu" class="screen">
+  <div class="menu-title">
+    <h1>弹棋<span class="highlight">问</span>机</h1>
+    <div class="menu-divider"></div>
+    <p class="subtitle">魏晋古戏 · 单机趣味局</p>
+  </div>
+
+  <nav class="menu-buttons">
+    <button id="btn-start"    class="btn-classic primary">开始弈棋</button>
+    <button id="btn-culture"  class="btn-classic">弹棋文化</button>
+    <button id="btn-settings" class="btn-classic">挑选馆子</button>
+  </nav>
+
+  <footer class="menu-footer">
+    <p>「平如砥砺，滑若柔荑，中央隆起，四角微颓」— 晋·徐广《弹棋经》</p>
+  </footer>
+</div>
+
+<!-- ============ 模式选择 ============ -->
+<div id="mode-select" class="screen hidden">
+  <div class="panel">
+    <h2 class="panel-title">选择对弈</h2>
+
+    <p class="ai-desc" id="type-desc">趣味局 — 反弹墙、陷洞、阻块与奇兵棋子。</p>
+
+    <div class="panel-row hidden" style="display:none;">
+      <label>对弈方式</label>
+      <button class="btn-toggle mode-btn" data-mode="ONLINE">联机对战</button>
+      <button class="btn-toggle mode-btn active" data-mode="1P">单机对弈</button>
+    </div>
+    <p class="ai-desc" id="mode-desc">与大师对弈，完整物理推演每一手。</p>
+
+    <div id="ai-level-row" class="panel-row" style="flex-direction:column; align-items:flex-start;">
+      <label>选择对手</label>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; width:100%;">
+        <button class="btn-toggle ai-btn hidden" data-level="1" style="display:none;">老者</button>
+        <button class="btn-toggle ai-btn active" data-level="2">大师</button>
+      </div>
+      <p class="ai-desc" id="ai-desc">国手门客 — 以完整物理推演每一手，精确预判碰撞、反弹与落盘。</p>
+    </div>
+
+    <div class="panel-actions">
+      <button id="btn-mode-back" class="btn-back">← 返回</button>
+      <button id="btn-go"        class="btn-go">下一步</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 联机大厅 ============ -->
+<div id="online-lobby" class="screen hidden">
+  <div class="panel">
+    <h2 class="panel-title">联机对战 · 趣味局</h2>
+    <p class="ai-desc" id="online-status">房主请运行 <strong>serve-public.bat</strong> 开启公网；好友只需浏览器打开邀请链接。</p>
+    <p class="ai-desc" id="online-invite-hint" style="text-align:center; font-size:0.92em;"></p>
+
+    <div id="online-entry-panel" class="panel-row" style="flex-direction:column; align-items:stretch; gap:12px;">
+      <button id="btn-online-resume" class="btn-go hidden">回到进行中的对局</button>
+      <button id="btn-online-host" class="btn-go">创建房间（房主）</button>
+      <p class="ai-desc" style="text-align:center; margin:4px 0;">— 或 —</p>
+      <input id="online-room-input" type="text" maxlength="6" placeholder="输入好友的 6 位房间号"
+             style="padding:10px; font-size:16px; text-align:center; letter-spacing:4px;">
+      <button id="btn-online-join" class="btn-classic">加入房间</button>
+    </div>
+
+    <div id="online-host-panel" class="panel-row hidden" style="flex-direction:column; align-items:stretch; gap:12px;">
+      <p class="ai-desc" style="text-align:center; margin:0;">您是房主，无需再加入</p>
+      <p class="ai-desc" style="text-align:center;">
+        房间号：<strong id="online-room-code" style="font-size:1.5em; letter-spacing:6px;"></strong>
+      </p>
+      <p class="ai-desc" id="online-host-hint" style="text-align:center;">将邀请链接发给好友，等待对方加入…</p>
+      <button id="btn-copy-invite" class="btn-classic hidden">📋 复制邀请链接</button>
+      <button id="btn-online-start" class="btn-go" disabled>等待对方加入…</button>
+      <p class="ai-desc" style="text-align:center; font-size:0.85em;">好友加入后自动开始同时布子，无需手动点击</p>
+    </div>
+
+    <div id="online-guest-panel" class="panel-row hidden" style="flex-direction:column; align-items:stretch; gap:12px;">
+      <p class="ai-desc" style="text-align:center; margin:0;">已加入房间</p>
+      <p class="ai-desc" style="text-align:center;">
+        房间号：<strong id="online-guest-room-code" style="font-size:1.3em; letter-spacing:4px;"></strong>
+      </p>
+      <p class="ai-desc" id="online-guest-hint" style="text-align:center;">加入成功，即将与房主同时盲布局…</p>
+      <button id="btn-become-host" type="button" class="btn-classic">我要当房主（创建新房间）</button>
+    </div>
+
+    <div class="panel-actions">
+      <button id="btn-online-back" class="btn-back">← 返回</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 游戏画面 ============ -->
+<div id="game-screen" class="screen hidden">
+  <canvas id="game-canvas"></canvas>
+  <div id="score-flash" class="hidden"></div>
+  <div id="online-game-controls" class="game-overlay-controls hidden">
+    <button type="button" id="btn-online-afk" class="btn-game-overlay">暂时离开</button>
+    <button type="button" id="btn-online-quit-match" class="btn-game-overlay btn-game-quit">退出对局</button>
+  </div>
+  <div id="sp-game-controls" class="game-overlay-controls hidden">
+    <button type="button" id="btn-sp-quit" class="btn-game-overlay btn-game-quit">退出对局</button>
+  </div>
+</div>
+
+<!-- ============ 文化内容 ============ -->
+<div id="culture-screen" class="screen hidden">
+  <header class="culture-header">
+    <button id="btn-culture-back" class="btn-back">← 返回</button>
+    <h2>弹棋文化</h2>
+    <div style="width:60px;"></div>
+  </header>
+  <div id="culture-content"></div>
+</div>
+
+<!-- ============ 设置 ============ -->
+<div id="settings-screen" class="screen hidden">
+  <div class="panel" style="max-width:440px;">
+    <h2 class="panel-title">游戏设置</h2>
+
+    <div class="settings-group">
+      <label>音效音量</label>
+      <input type="range" id="vol-sfx" min="0" max="1" step="0.05" value="0.8">
+    </div>
+    <div class="settings-group">
+      <label>环境音量</label>
+      <input type="range" id="vol-amb" min="0" max="1" step="0.05" value="0.6">
+    </div>
+
+    <div class="settings-group">
+      <label>棋盘皮肤</label>
+      <div class="skin-row">
+        <button class="skin-btn skin-board-btn active" data-skin="lacquer">宣纸淡墨</button>
+        <button class="skin-btn skin-board-btn"        data-skin="jade">青玉棋盘</button>
+        <button class="skin-btn skin-board-btn"        data-skin="stone">青石棋盘</button>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <label>棋子皮肤</label>
+      <div class="skin-row">
+        <button class="skin-btn skin-piece-btn active" data-skin="jade">玉石</button>
+        <button class="skin-btn skin-piece-btn"        data-skin="ivory">象牙木质</button>
+        <button class="skin-btn skin-piece-btn"        data-skin="lacquer">漆面错丝</button>
+      </div>
+    </div>
+
+    <div class="panel-actions">
+      <button id="btn-settings-back" class="btn-back">← 返回</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/lib/matter.min.js"></script>
+<script src="js/data.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/physics.js?v=12"></script>
+<script src="js/renderer.js?v=9"></script>
+<script src="js/input.js?v=4"></script>
+<script src="js/ai.js?v=13"></script>
+<script src="js/online.js?v=18"></script>
+<script src="js/game.js?v=42"></script>
+<script src="js/main.js?v=23"></script>
+
+</body>
+</html>
