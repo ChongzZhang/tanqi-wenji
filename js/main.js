@@ -228,22 +228,24 @@ document.addEventListener('DOMContentLoaded', () => {
   function updateModeDesc() {
     const modeEl = document.getElementById('mode-desc');
     if (!modeEl) return;
-    modeEl.textContent = '与大师对弈，完整物理推演每一手。';
+    modeEl.textContent = '熟悉规则可点主菜单「玩法引导」；确认后进入布局。';
   }
 
-  function setAiLevelRowVisible(show) {
-    const row = document.getElementById('ai-level-row');
-    if (!row) return;
-    row.classList.toggle('hidden', !show);
-    row.style.display = show ? 'flex' : 'none';
+  function startSinglePlayerGame() {
+    Game.showScreen('game-screen');
+    Game.startGame('1P', 2, Game.state.boardSkin, Game.state.pieceSkin, 'fun');
   }
 
   document.getElementById('btn-start').addEventListener('click', () => {
     Audio.resume();
     Audio.uiClick();
     Game.showScreen('mode-select');
-    setAiLevelRowVisible(true);
     updateModeDesc();
+  });
+
+  document.getElementById('btn-guide').addEventListener('click', () => {
+    Audio.uiClick();
+    Guide.show(null);
   });
 
   document.getElementById('btn-culture').addEventListener('click', () => {
@@ -257,37 +259,14 @@ document.addEventListener('DOMContentLoaded', () => {
     Game.showScreen('settings-screen');
   });
 
-  document.querySelectorAll('.mode-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      setAiLevelRowVisible(btn.dataset.mode === '1P');
-      updateModeDesc();
-      Audio.uiClick();
-    });
-  });
-
-  document.querySelectorAll('.ai-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.ai-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      const desc = DATA.aiLevels[parseInt(btn.dataset.level, 10) - 1];
-      const el = document.getElementById('ai-desc');
-      if (el && desc) el.textContent = `${desc.title} — ${desc.desc}`;
-      Audio.uiClick();
-    });
-  });
-
   document.getElementById('btn-go').addEventListener('click', () => {
     Audio.uiClick();
     Audio.resume();
-
-    const aiBtn = document.querySelector('.ai-btn.active')
-      || document.querySelector('.ai-btn[data-level="2"]');
-    const aiLevel = aiBtn ? parseInt(aiBtn.dataset.level, 10) : 2;
-
-    Game.showScreen('game-screen');
-    Game.startGame('1P', aiLevel, Game.state.boardSkin, Game.state.pieceSkin, 'fun');
+    if (Guide.shouldAutoShow()) {
+      Guide.show(() => startSinglePlayerGame());
+      return;
+    }
+    startSinglePlayerGame();
   });
 
   document.getElementById('btn-mode-back').addEventListener('click', () => {
@@ -647,11 +626,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     html += '</section>';
 
-    html += '<section><h2>AI 对手简介</h2>';
-    DATA.aiLevels.forEach(a => {
-      html += `<div class="story"><h3>${a.name}（${a.title}）</h3><p>${a.desc}</p></div>`;
-    });
-    html += '</section>';
+    const visibleAi = DATA.aiLevels.filter(a => a.visible !== false);
+    if (visibleAi.length) {
+      html += '<section><h2>门客简介</h2>';
+      visibleAi.forEach(a => {
+        html += `<div class="story"><h3>${a.name}（${a.title}）</h3><p>${a.desc}</p></div>`;
+      });
+      html += '</section>';
+    }
 
     container.innerHTML = html;
   }

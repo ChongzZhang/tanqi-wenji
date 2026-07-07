@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>弹棋问机 · 联机对战</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/style.css?v=5">
+  <link rel="stylesheet" href="css/style.css?v=6">
 </head>
 <body>
 
@@ -19,6 +19,7 @@
 
   <nav class="menu-buttons">
     <button id="btn-start"    class="btn-classic primary">开始弈棋</button>
+    <button id="btn-guide"    class="btn-classic">玩法引导</button>
     <button id="btn-culture"  class="btn-classic">弹棋文化</button>
     <button id="btn-settings" class="btn-classic">挑选馆子</button>
   </nav>
@@ -31,30 +32,32 @@
 <!-- ============ 模式选择 ============ -->
 <div id="mode-select" class="screen hidden">
   <div class="panel">
-    <h2 class="panel-title">选择对弈</h2>
+    <h2 class="panel-title">开始对弈</h2>
 
     <p class="ai-desc" id="type-desc">趣味局 — 反弹墙、陷洞、阻块与奇兵棋子。</p>
+    <p class="ai-desc" id="mode-desc">熟悉规则可点主菜单「玩法引导」；确认后进入布局。</p>
 
-    <div class="panel-row hidden" style="display:none;">
-      <label>对弈方式</label>
-      <button class="btn-toggle mode-btn" data-mode="ONLINE">联机对战</button>
+    <div class="panel-row hidden" style="display:none;" aria-hidden="true">
       <button class="btn-toggle mode-btn active" data-mode="1P">单机对弈</button>
-    </div>
-    <p class="ai-desc" id="mode-desc">与大师对弈，完整物理推演每一手。</p>
-
-    <div id="ai-level-row" class="panel-row" style="flex-direction:column; align-items:flex-start;">
-      <label>选择对手</label>
-      <div style="display:flex; gap:10px; flex-wrap:wrap; width:100%;">
-        <button class="btn-toggle ai-btn hidden" data-level="1" style="display:none;">老者</button>
-        <button class="btn-toggle ai-btn active" data-level="2">大师</button>
-      </div>
-      <p class="ai-desc" id="ai-desc">国手门客 — 以完整物理推演每一手，精确预判碰撞、反弹与落盘。</p>
+      <button class="btn-toggle ai-btn" data-level="1">老者</button>
+      <button class="btn-toggle ai-btn active" data-level="2">大师</button>
     </div>
 
     <div class="panel-actions">
       <button id="btn-mode-back" class="btn-back">← 返回</button>
-      <button id="btn-go"        class="btn-go">下一步</button>
+      <button id="btn-go"        class="btn-go">开始对弈</button>
     </div>
+  </div>
+</div>
+
+<!-- ============ 玩法引导 ============ -->
+<div id="game-guide" class="guide-overlay hidden">
+  <button id="guide-skip" type="button" class="guide-skip">跳过</button>
+  <div class="guide-card" role="dialog" aria-modal="true" aria-labelledby="guide-title">
+    <p class="guide-step-indicator" id="guide-step-indicator">1 / 5</p>
+    <h2 id="guide-title">布局</h2>
+    <div id="guide-body" class="guide-body"></div>
+    <p class="guide-hint">点击任意处继续</p>
   </div>
 </div>
 
@@ -162,15 +165,16 @@
 </div>
 
 <script src="js/lib/matter.min.js"></script>
-<script src="js/data.js"></script>
+<script src="js/data.js?v=2"></script>
 <script src="js/audio.js"></script>
+<script src="js/guide.js?v=1"></script>
 <script src="js/physics.js?v=12"></script>
 <script src="js/renderer.js?v=10"></script>
 <script src="js/input.js?v=4"></script>
 <script src="js/ai.js?v=13"></script>
 <script src="js/online.js?v=18"></script>
-<script src="js/game.js?v=43"></script>
-<script src="js/main.js?v=23"></script>
+<script src="js/game.js?v=44"></script>
+<script src="js/main.js?v=24"></script>
 
 </body>
 </html>
