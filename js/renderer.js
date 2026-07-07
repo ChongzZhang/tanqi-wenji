@@ -195,20 +195,62 @@ const Renderer = (() => {
     return len * baseScale * cam.zoom * persp;
   }
 
-  // ---------- 棋子屏幕拾取（正投影命中，避开高度场求逆）----------
-  function pickPiece(sx, sy, team) {
-    const W = Physics.W;
-    let best = null, bestDepth = -Infinity;
+  // ---------- 棋子拾取（屏幕命中 + 世界坐标兜底，贴边/触屏友好）----------
+  function isTouchDevice() {
+    return typeof window !== 'undefined' &&
+      ('ontouchstart' in window || (navigator.maxTouchPoints || 0) > 0);
+  }
+
+  function pickSlopPx() {
+    const narrow = viewW() < 520 || viewH() < 520;
+    if (isTouchDevice()) return narrow ? 42 : 34;
+    return 12;
+  }
+
+  function pieceScreenAnchor(body) {
+    const px = body.position.x;
+    const py = body.position.y;
+    const hs = surfaceHeight(px, py);
+    const thick = Physics.W.pieceRadius * 1.5;
+    const Pb = project(px, py, hs);
+    const Pt = project(px, py, hs + thick);
+    const R = Physics.W.pieceRadius * Pt.scale;
+    return { x: Pb.x, y: Pb.y, depth: Pb.depth, radius: R + pickSlopPx() };
+  }
+
+  function pickPieceByScreen(sx, sy, team) {
+    let best = null;
+    let bestDepth = -Infinity;
     Physics.getPieces().forEach(p => {
       if (team && p.gameTeam !== team) return;
-      const h = surfaceHeight(p.position.x, p.position.y) + W.pieceRadius;
-      const sp = project(p.position.x, p.position.y, h);
-      const r = W.pieceRadius * sp.scale + 8;
-      if (Math.hypot(sp.x - sx, sp.y - sy) <= r && sp.depth > bestDepth) {
-        best = p; bestDepth = sp.depth;
+      const anchor = pieceScreenAnchor(p);
+      if (Math.hypot(anchor.x - sx, anchor.y - sy) <= anchor.radius && anchor.depth > bestDepth) {
+        best = p;
+        bestDepth = anchor.depth;
       }
     });
     return best;
+  }
+
+  function pickPieceByWorld(sx, sy, team) {
+    const w = screenToWorldPlane(sx, sy);
+    const W = Physics.W;
+    const slop = isTouchDevice() ? 24 : 16;
+    let best = null;
+    let bestDist = Infinity;
+    Physics.getPieces().forEach(p => {
+      if (team && p.gameTeam !== team) return;
+      const d = Math.hypot(p.position.x - w.x, p.position.y - w.y);
+      if (d <= W.pieceRadius + slop && d < bestDist) {
+        best = p;
+        bestDist = d;
+      }
+    });
+    return best;
+  }
+
+  function pickPiece(sx, sy, team) {
+    return pickPieceByScreen(sx, sy, team) || pickPieceByWorld(sx, sy, team);
   }
 
   // 旋转视角（输入层调用）
