@@ -1,11 +1,14 @@
 // 四方乱战 — 队伍配置与四角布局区
 
 const Teams = (() => {
-  const TURN_ORDER = ['black', 'red', 'blue', 'white'];
+  const TURN_ORDER = ['white', 'black', 'red', 'blue'];
   const LAYOUT_ORDER = ['white', 'black', 'red', 'blue'];
   const AI_TEAMS = ['black', 'red', 'blue'];
   const HUMAN_TEAM = 'white';
   const PIECES_PER_TEAM = 6;
+  /** 四国混战：边界反弹墙总长 +30%，场中随机物件 +40% */
+  const FFA_WALL_LEN_MULT = 1.3;
+  const FFA_OBJECT_MULT = 1.4;
   /** 四国混战 AI 固定使用大师（id=2） */
   const MASTER_AI_LEVEL = 2;
   /** 菱形视角偏航：白方(左下象限)始终在屏幕下方 */
@@ -150,6 +153,8 @@ const Teams = (() => {
     AI_TEAMS,
     HUMAN_TEAM,
     PIECES_PER_TEAM,
+    FFA_WALL_LEN_MULT,
+    FFA_OBJECT_MULT,
     MASTER_AI_LEVEL,
     FFA_CAMERA_YAW,
     getName,

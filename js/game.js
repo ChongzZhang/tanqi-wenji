@@ -872,8 +872,17 @@ const Game = (() => {
     }
   }
 
+  function ffaScaledCount(min, randSpan, mult) {
+    const base = min + Math.floor(Math.random() * (randSpan + 1));
+    return Math.max(min, Math.round(base * mult));
+  }
+
   function setupRandomBoard() {
-    const obsCount = 1 + Math.floor(Math.random() * 3);
+    const ffa = isFourWay();
+    const objMult = ffa ? Teams.FFA_OBJECT_MULT : 1;
+    const obsCount = ffa
+      ? ffaScaledCount(1, 2, objMult)
+      : 1 + Math.floor(Math.random() * 3);
     const ww = Physics.W;
     const placed = [];
     for (let i = 0; i < obsCount; i++) {
@@ -1345,23 +1354,27 @@ const Game = (() => {
   // ===== 趣味局：随机生成反弹墙、陷洞、固定阻块 =====
   function generateFunItems(obstaclePositions) {
     const ww = Physics.W;
+    const ffa = isFourWay();
+    const wallMult = ffa ? Teams.FFA_WALL_LEN_MULT : 1;
+    const objMult = ffa ? Teams.FFA_OBJECT_MULT : 1;
     const occupied = (obstaclePositions || []).map(p => ({ x: p.x, y: p.y, r: 40 }));
     const farEnough = (x, y, r) =>
       Math.hypot(x - ww.centerX, y - ww.centerY) > ww.domeRadius + r + 10 &&
       occupied.every(o => Math.hypot(o.x - x, o.y - y) > o.r + r);
 
-    // —— 反弹墙：沿边界，总长约为周长的 1/3 ——
+    // —— 反弹墙：沿边界，四国模式总长 +30% ——
     const perimeter = ww.boardSize * 4;
-    const targetWallLen = perimeter / 3;
-    const inset = 7;  // 半墙厚，使墙体完全位于盘内，避免高速穿透
+    const targetWallLen = (perimeter / 3) * wallMult;
+    const inset = 7;
     const edges = [
-      { horizontal: true,  fixed: ww.boardTop    + inset },  // 上
-      { horizontal: true,  fixed: ww.boardBottom - inset },  // 下
-      { horizontal: false, fixed: ww.boardLeft   + inset },  // 左
-      { horizontal: false, fixed: ww.boardRight  - inset },  // 右
+      { horizontal: true,  fixed: ww.boardTop    + inset },
+      { horizontal: true,  fixed: ww.boardBottom - inset },
+      { horizontal: false, fixed: ww.boardLeft   + inset },
+      { horizontal: false, fixed: ww.boardRight  - inset },
     ];
     let wallTotal = 0, guard = 0;
-    while (wallTotal < targetWallLen && guard++ < 30) {
+    const wallGuardMax = ffa ? 40 : 30;
+    while (wallTotal < targetWallLen && guard++ < wallGuardMax) {
       const e = edges[Math.floor(Math.random() * edges.length)];
       const len = 70 + Math.random() * 110;
       const lo = (e.horizontal ? ww.boardLeft : ww.boardTop) + len / 2 + 6;
@@ -1373,8 +1386,8 @@ const Game = (() => {
       wallTotal += len;
     }
 
-    // —— 固定阻块：2~3 个 ——
-    const blockCount = 2 + Math.floor(Math.random() * 2);
+    // —— 固定阻块：四国模式数量 +40% ——
+    const blockCount = ffa ? ffaScaledCount(2, 1, objMult) : 2 + Math.floor(Math.random() * 2);
     for (let i = 0; i < blockCount; i++) {
       for (let t = 0; t < 50; t++) {
         const x = ww.centerX + (Math.random() - 0.5) * 320;
@@ -1383,12 +1396,13 @@ const Game = (() => {
       }
     }
 
-    // —— 陷洞：2 个，位于中部中立带，避开丰腹与其它物件 ——
+    // —— 陷洞：四国模式数量 +40% ——
+    const holeCount = ffa ? ffaScaledCount(2, 0, objMult) : 2;
     const holeR = ww.pieceRadius * 2;
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < holeCount; i++) {
       for (let t = 0; t < 60; t++) {
         const x = ww.boardLeft + 50 + Math.random() * (ww.boardSize - 100);
-        const y = ww.centerY + (Math.random() - 0.5) * 30;   // 严格中立带 ±15，避开双方布局区
+        const y = ww.centerY + (Math.random() - 0.5) * 30;
         if (farEnough(x, y, holeR + 6)) { Physics.addHole(x, y, holeR); occupied.push({ x, y, r: holeR + 20 }); break; }
       }
     }
@@ -1521,7 +1535,7 @@ const Game = (() => {
   function beginGame() {
     state.phase = 'playing';
     state.subPhase = 'waiting';
-    state.currentTurn = isFourWay() ? Teams.TURN_ORDER[0] : 'black';
+    state.currentTurn = isFourWay() ? state.humanTeam : 'black';
     state.hitThisTurn = false;
     state.selectedPiece = null;
     state.movingPiece = null;
