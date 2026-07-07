@@ -425,7 +425,7 @@ const Physics = (() => {
       sbObstacles = sbObstacles.filter((b) => b !== body);
     }
 
-    function sbCreatePiece(wx, wy, team, slot, special) {
+    function sbCreatePiece(wx, wy, team, slot, special, isGeneral) {
       const body = Matter.Bodies.circle(wx, wy, W.pieceRadius, {
         label: team,
         restitution: 0.72,
@@ -437,9 +437,18 @@ const Physics = (() => {
       body.gameTeam = team;
       body.slot = slot != null ? slot : 0;
       body.special = special || null;
+      body.isGeneral = !!isGeneral;
       Matter.World.add(sbWorld, body);
       sbPieces.push(body);
       return body;
+    }
+
+    function sbIsTeamPiece(body) {
+      return body && body.gameTeam && body.gameTeam !== 'obstacle';
+    }
+
+    function sbIsEnemyTeam(team, myTeam) {
+      return team && team !== myTeam && team !== 'obstacle';
     }
 
     function sbCreateObstacle(wx, wy, r) {
@@ -551,7 +560,7 @@ const Physics = (() => {
     Matter.Events.on(sbEngine, 'collisionStart', (e) => {
       e.pairs.forEach((pair) => {
         const { bodyA, bodyB } = pair;
-        const isTeamPiece = (b) => b.label === 'black' || b.label === 'white';
+        const isTeamPiece = sbIsTeamPiece;
         const isObstacle = (b) => b.label === 'obstacle';
         const isBarrier = (b) => b.label === 'wall' || b.label === 'block';
 
@@ -590,7 +599,7 @@ const Physics = (() => {
     function loadFromGame() {
       sbClear();
       getPieces().forEach((p) => {
-        sbCreatePiece(p.position.x, p.position.y, p.gameTeam, p.slot, p.special);
+        sbCreatePiece(p.position.x, p.position.y, p.gameTeam, p.slot, p.special, p.isGeneral);
       });
       sbLoadFunTerrain();
     }
@@ -614,13 +623,15 @@ const Physics = (() => {
       return best;
     }
 
-    function sbComputeAttackScore(myTeam, oppTeam, metrics) {
+    function sbComputeAttackScore(myTeam, metrics) {
       const {
         enemyFallen, ownFallen, enemyContacts, enemyHoleFalls, ownHoleFalls,
         shooterFell, shooterInHole, wallHits: wHits, obstacleHits: oHits,
+        generalKills,
       } = metrics;
 
       let score = enemyFallen * 1200 - ownFallen * 900;
+      score += (generalKills || 0) * 8000;
       score += enemyContacts * 12;
       score += enemyHoleFalls * 450;
       score -= ownHoleFalls * 600;
@@ -629,9 +640,10 @@ const Physics = (() => {
       if (wHits > 0 && (enemyFallen > 0 || enemyContacts > 0)) score += 70 + wHits * 12;
       if (oHits > 0 && (enemyFallen > 0 || enemyContacts > 0)) score += 50 + oHits * 8;
 
-      sbPieces.filter((p) => p.gameTeam === oppTeam).forEach((ep) => {
+      sbPieces.filter((p) => sbIsEnemyTeam(p.gameTeam, myTeam)).forEach((ep) => {
         const em = sbEdgeMargin(ep.position);
         if (em < W.pieceRadius * 3) score += (W.pieceRadius * 3 - em) * 20;
+        if (ep.isGeneral) score += (W.pieceRadius * 4 - Math.min(em, W.pieceRadius * 4)) * 8;
         if (sbHoles.length > 0) {
           const hd = sbHoleDanger(ep.position);
           if (hd < W.pieceRadius * 3) score += (W.pieceRadius * 3 - hd) * 16;
@@ -655,6 +667,7 @@ const Physics = (() => {
           team: p.gameTeam,
           slot: p.slot,
           special: p.special,
+          isGeneral: p.isGeneral,
           x: p.position.x,
           y: p.position.y,
           vx: p.velocity.x,
@@ -676,7 +689,7 @@ const Physics = (() => {
       sbPieces = [];
       sbObstacles = [];
       snap.pieces.forEach((p) => {
-        const body = sbCreatePiece(p.x, p.y, p.team, p.slot, p.special);
+        const body = sbCreatePiece(p.x, p.y, p.team, p.slot, p.special, p.isGeneral);
         Matter.Body.setPosition(body, { x: p.x, y: p.y });
         Matter.Body.setVelocity(body, { x: p.vx, y: p.vy });
       });
@@ -719,43 +732,47 @@ const Physics = (() => {
 
     function assessThreatOnCurrentBoard(victimTeam) {
       const snap = snapshotSbState();
-      const attackerTeam = victimTeam === 'black' ? 'white' : 'black';
-      const attackers = snap.pieces.filter((p) => p.team === attackerTeam);
+      const attackerTeams = [...new Set(
+        snap.pieces.map((p) => p.team).filter((t) => sbIsEnemyTeam(t, victimTeam))
+      )];
 
       let best = { maxKills: 0, threatScore: 0, targetSlot: null };
       const slotKillWeight = {};
 
-      attackers.forEach((ap) => {
-        for (let deg = 0; deg < 360; deg += THREAT_ANGLE_STEP) {
-          for (const ratio of THREAT_FORCE_RATIOS) {
-            restoreSbState(snap);
-            const rad = (deg / 180) * Math.PI;
-            const forceMag = ratio * SB_MAX_FORCE;
-            const r = runShotSimulation(
-              attackerTeam,
-              ap.slot,
-              Math.cos(rad) * forceMag,
-              Math.sin(rad) * forceMag
-            );
-            if (r.enemyFallen > 0) {
-              (r.fallenEnemySlots || []).forEach((s) => {
-                slotKillWeight[s] = (slotKillWeight[s] || 0) + 1000 + r.score;
-              });
-              if (
-                r.enemyFallen > best.maxKills ||
-                (r.enemyFallen === best.maxKills && r.score > best.threatScore)
-              ) {
-                best = {
-                  maxKills: r.enemyFallen,
-                  threatScore: r.score,
-                  targetSlot: r.fallenEnemySlots[0] ?? best.targetSlot,
-                };
+      attackerTeams.forEach((attackerTeam) => {
+        const attackers = snap.pieces.filter((p) => p.team === attackerTeam);
+        attackers.forEach((ap) => {
+          for (let deg = 0; deg < 360; deg += THREAT_ANGLE_STEP) {
+            for (const ratio of THREAT_FORCE_RATIOS) {
+              restoreSbState(snap);
+              const rad = (deg / 180) * Math.PI;
+              const forceMag = ratio * SB_MAX_FORCE;
+              const r = runShotSimulation(
+                attackerTeam,
+                ap.slot,
+                Math.cos(rad) * forceMag,
+                Math.sin(rad) * forceMag
+              );
+              if (r.enemyFallen > 0) {
+                (r.fallenEnemySlots || []).forEach((s) => {
+                  slotKillWeight[s] = (slotKillWeight[s] || 0) + 1000 + r.score;
+                });
+                if (
+                  r.enemyFallen > best.maxKills ||
+                  (r.enemyFallen === best.maxKills && r.score > best.threatScore)
+                ) {
+                  best = {
+                    maxKills: r.enemyFallen,
+                    threatScore: r.score,
+                    targetSlot: r.fallenEnemySlots[0] ?? best.targetSlot,
+                  };
+                }
+              } else if (r.enemyContacts > 0 && best.maxKills === 0 && r.score * 0.25 > best.threatScore) {
+                best.threatScore = r.score * 0.25;
               }
-            } else if (r.enemyContacts > 0 && best.maxKills === 0 && r.score * 0.25 > best.threatScore) {
-              best.threatScore = r.score * 0.25;
             }
           }
-        }
+        });
       });
 
       restoreSbState(snap);
@@ -783,7 +800,6 @@ const Physics = (() => {
     }
 
     function runShotSimulation(myTeam, slot, fx, fy) {
-      const oppTeam = myTeam === 'black' ? 'white' : 'black';
       enemyContacts = 0;
       wallHits = 0;
       obstacleHits = 0;
@@ -804,10 +820,11 @@ const Physics = (() => {
         };
       }
 
-      const enemyStart = sbPieces.filter((p) => p.gameTeam === oppTeam).length;
+      const enemyStart = sbPieces.filter((p) => sbIsEnemyTeam(p.gameTeam, myTeam)).length;
       const ownStart = sbPieces.filter((p) => p.gameTeam === myTeam).length;
       const fallenEnemySlots = [];
       const fallenOwnSlots = [];
+      let generalKills = 0;
 
       sbFling(shooter, fx, fy);
       let stillFrames = 0;
@@ -821,13 +838,16 @@ const Physics = (() => {
         const fallen = sbCullFallen();
         for (const f of fallen) {
           const p = f.body;
-          if (p.gameTeam === oppTeam) fallenEnemySlots.push(p.slot);
+          if (sbIsEnemyTeam(p.gameTeam, myTeam)) {
+            fallenEnemySlots.push(p.slot);
+            if (p.isGeneral) generalKills++;
+          }
           if (p.gameTeam === myTeam) fallenOwnSlots.push(p.slot);
           if (p.gameTeam === myTeam && p.slot === slot) {
             shooterFell = true;
             if (f.inHole) shooterInHole = true;
           }
-          if (p.gameTeam === oppTeam && f.inHole) enemyHoleFalls++;
+          if (sbIsEnemyTeam(p.gameTeam, myTeam) && f.inHole) enemyHoleFalls++;
           if (p.gameTeam === myTeam && f.inHole) ownHoleFalls++;
         }
         if (sbAllStopped()) {
@@ -838,12 +858,12 @@ const Physics = (() => {
         }
       }
 
-      const enemyEnd = sbPieces.filter((p) => p.gameTeam === oppTeam).length;
+      const enemyEnd = sbPieces.filter((p) => sbIsEnemyTeam(p.gameTeam, myTeam)).length;
       const ownEnd = sbPieces.filter((p) => p.gameTeam === myTeam).length;
       const enemyFallen = enemyStart - enemyEnd;
       const ownFallen = ownStart - ownEnd;
 
-      const score = sbComputeAttackScore(myTeam, oppTeam, {
+      const score = sbComputeAttackScore(myTeam, {
         enemyFallen,
         ownFallen,
         enemyContacts,
@@ -853,6 +873,7 @@ const Physics = (() => {
         shooterInHole,
         wallHits,
         obstacleHits,
+        generalKills,
       });
 
       return {

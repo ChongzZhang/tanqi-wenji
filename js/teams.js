@@ -6,6 +6,8 @@ const Teams = (() => {
   const AI_TEAMS = ['black', 'red', 'blue'];
   const HUMAN_TEAM = 'white';
   const PIECES_PER_TEAM = 6;
+  /** 四国混战 AI 固定使用大师（id=2） */
+  const MASTER_AI_LEVEL = 2;
   /** 菱形视角偏航：白方(左下象限)始终在屏幕下方 */
   const FFA_CAMERA_YAW = -Math.PI / 4;
 
@@ -148,6 +150,7 @@ const Teams = (() => {
     AI_TEAMS,
     HUMAN_TEAM,
     PIECES_PER_TEAM,
+    MASTER_AI_LEVEL,
     FFA_CAMERA_YAW,
     getName,
     getLayoutZone,

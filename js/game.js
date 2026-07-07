@@ -263,6 +263,11 @@ const Game = (() => {
     else Renderer.setCameraOverview();
   }
 
+  function getAiLevel() {
+    if (isFourWay()) return Teams.MASTER_AI_LEVEL;
+    return state.aiLevel;
+  }
+
   function isAiTeam(team) {
     if (isFourWay()) return state.aiTeams.includes(team);
     return state.mode === '1P' && team === state.aiTeam;
@@ -1311,7 +1316,7 @@ const Game = (() => {
     Renderer.setFFAViewMode(true);
     state.mode = '1P';
     state.gameType = 'fun';
-    state.aiLevel = 2;
+    state.aiLevel = Teams.MASTER_AI_LEVEL;
     state.humanTeam = Teams.HUMAN_TEAM;
     state.aiTeams = Teams.AI_TEAMS.slice();
     state.aiTeam = state.aiTeams[0];
@@ -1812,7 +1817,8 @@ const Game = (() => {
 
   // ===== AI =====
   function scheduleAIMove() {
-    const baseSec = [0, 1.6, 2.4][state.aiLevel] || 1.6;
+    const level = getAiLevel();
+    const baseSec = [0, 1.6, 2.4][level] || 1.6;
     const delay = baseSec * 1000 + Math.random() * 1000;
     const aiTeam = state.currentTurn;
     setTimeout(async () => {
@@ -1820,7 +1826,7 @@ const Game = (() => {
       if (!isAiTeam(aiTeam)) return;
       let move = null;
       try {
-        move = AI.computeMove(state.aiLevel, aiTeam);
+        move = AI.computeMove(level, aiTeam);
       } catch (err) {
         console.error('AI 计算出错，改用随机弹射：', err);
       }
