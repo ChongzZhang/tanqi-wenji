@@ -90,9 +90,13 @@ const Game = (() => {
     phase: 'menu',        // menu | layout | playing | gameover | replay
     subPhase: 'waiting',  // (playing下) waiting | moving | combo
     mode: '2P',
+    matchMode: '2P',      // 2P | 4FFA
     gameType: 'classic',  // classic | fun
     aiLevel: 2,
     aiTeam: 'white',
+    humanTeam: 'white',
+    aiTeams: ['black', 'red', 'blue'],
+    eliminated: null,     // Set<teamId>，四方乱战用
 
     onlineRole: null,       // host | guest
     onlineMyTeam: null,     // black | white
@@ -248,6 +252,29 @@ const Game = (() => {
 
   function viewH() {
     return canvas.clientHeight || window.innerHeight;
+  }
+
+  function isFourWay() {
+    return state.matchMode === '4FFA';
+  }
+
+  function isAiTeam(team) {
+    if (isFourWay()) return state.aiTeams.includes(team);
+    return state.mode === '1P' && team === state.aiTeam;
+  }
+
+  function isHumanTurn() {
+    if (isFourWay()) return state.currentTurn === state.humanTeam;
+    if (state.mode === 'ONLINE') return state.currentTurn === state.onlineMyTeam;
+    return !(state.mode === '1P' && state.currentTurn === state.aiTeam);
+  }
+
+  function teamHasPieces(team) {
+    return Physics.getPieces().some(p => p.gameTeam === team);
+  }
+
+  function teamHasGeneral(team) {
+    return Physics.getPieces().some(p => p.gameTeam === team && p.isGeneral);
   }
 
   function isMobileView() {
@@ -717,7 +744,8 @@ const Game = (() => {
 
       const inputState = Input.getState();
       const canInteract = state.subPhase === 'waiting' &&
-        (state.mode !== 'ONLINE' || state.currentTurn === state.onlineMyTeam);
+        (state.mode !== 'ONLINE' || state.currentTurn === state.onlineMyTeam) &&
+        (!isFourWay() || state.currentTurn === state.humanTeam);
       state.isDragging = canInteract && inputState.isDragging;
       state.dragWorldPos = canInteract ? inputState.dragWorldPos : null;
       if (canInteract && inputState.isDragging && inputState.selectedPiece) {
@@ -1239,10 +1267,14 @@ const Game = (() => {
 
   // ===== 开始新游戏 =====
   function startGame(mode, aiLevel, boardSkin, pieceSkin, gameType) {
+    state.matchMode = '2P';
     state.mode     = mode     || '2P';
     state.gameType = gameType || 'classic';
     state.aiLevel  = aiLevel  || 2;
     state.aiTeam   = 'white';
+    state.humanTeam = 'white';
+    state.aiTeams = ['black', 'red', 'blue'];
+    state.eliminated = null;
 
     state.boardSkin = boardSkin || state.boardSkin;
     state.pieceSkin = pieceSkin || state.pieceSkin;
@@ -1265,6 +1297,36 @@ const Game = (() => {
     Audio.startAmbient();
     Audio.scrollOpen();
     startLayoutPhase('black');
+    updateOnlineGameControls();
+  }
+
+  function startFourWayGame(boardSkin, pieceSkin) {
+    state.matchMode = '4FFA';
+    state.mode = '1P';
+    state.gameType = 'fun';
+    state.aiLevel = 2;
+    state.humanTeam = Teams.HUMAN_TEAM;
+    state.aiTeams = Teams.AI_TEAMS.slice();
+    state.aiTeam = state.aiTeams[0];
+    state.eliminated = new Set();
+
+    state.boardSkin = boardSkin || state.boardSkin;
+    state.pieceSkin = pieceSkin || state.pieceSkin;
+
+    state.blackScore = 0;
+    state.whiteScore = 0;
+    state.winner = null;
+    state.currentTurn = Teams.TURN_ORDER[0];
+    state.layoutConfirmed = Teams.initLayoutConfirmed();
+    state.replayData = [];
+    state.stats = Teams.initStats();
+
+    Physics.reset();
+    setupRandomBoard();
+
+    Audio.startAmbient();
+    Audio.scrollOpen();
+    startLayoutPhase(Teams.HUMAN_TEAM);
     updateOnlineGameControls();
   }
 
@@ -1324,29 +1386,69 @@ const Game = (() => {
   function sanitizeAILayout(positions, team) {
     const ww = Physics.W;
     const R = ww.pieceRadius;
-    const bad = (x, y) =>
-      Physics.getHoles().some(h => Math.hypot(h.x - x, h.y - y) < h.r + R) ||
-      Physics.getBlocks().some(b => Math.hypot(b.position.x - x, b.position.y - y) < (b.blockSize || 26) * 0.7 + R);
-    const zoneTop    = team === 'white' ? ww.boardTop + 15 : ww.boardTop + ww.boardSize * 0.6;
-    const zoneBottom = team === 'white' ? ww.boardTop + ww.boardSize * 0.4 : ww.boardBottom - 15;
+    const zone = isFourWay() ? Teams.getLayoutZone(team, ww) : null;
+    const zoneTop = zone ? zone.yMin : (team === 'white' ? ww.boardTop + 15 : ww.boardTop + ww.boardSize * 0.6);
+    const zoneBottom = zone ? zone.yMax : (team === 'white' ? ww.boardTop + ww.boardSize * 0.4 : ww.boardBottom - 15);
+    const zoneLeft = zone ? zone.xMin : ww.boardLeft + 20;
+    const zoneRight = zone ? zone.xMax : ww.boardRight - 20;
+    const bad = (x, y) => {
+      if (x < zoneLeft || x > zoneRight || y < zoneTop || y > zoneBottom) return true;
+      return Physics.getHoles().some(h => Math.hypot(h.x - x, h.y - y) < h.r + R) ||
+        Physics.getBlocks().some(b => Math.hypot(b.position.x - x, b.position.y - y) < (b.blockSize || 26) * 0.7 + R);
+    };
     return positions.map(p => {
       let { x, y } = p;
       for (let t = 0; t < 40 && bad(x, y); t++) {
-        x = ww.boardLeft + 20 + Math.random() * (ww.boardSize - 40);
+        x = zoneLeft + Math.random() * (zoneRight - zoneLeft);
         y = zoneTop + Math.random() * (zoneBottom - zoneTop);
       }
       return { x, y };
     });
   }
 
-  // 趣味局：将某方「倒数第二枚」标记为曲线棋、「最后一枚」标记为疾行棋
-  function tagSpecials(team) {
+  // 趣味局 / 四方乱战：标记特殊棋与主将（slot0=主将，倒二=曲线，末=疾行）
+  function tagTeamPieces(team) {
+    const pcs = Physics.getPieces()
+      .filter(p => p.gameTeam === team)
+      .sort((a, b) => a.slot - b.slot);
+    pcs.forEach(p => {
+      p.special = null;
+      p.isGeneral = false;
+    });
+    if (isFourWay()) {
+      if (pcs.length >= 1) pcs[0].isGeneral = true;
+      if (pcs.length >= 2) pcs[pcs.length - 2].special = 'curve';
+      if (pcs.length >= 1) pcs[pcs.length - 1].special = 'speed';
+      return;
+    }
     if (state.gameType !== 'fun') return;
-    const pcs = Physics.getPieces().filter(p => p.gameTeam === team);
-    pcs.forEach(p => { p.special = null; });
     if (pcs.length >= 2) {
       pcs[pcs.length - 2].special = 'curve';
       pcs[pcs.length - 1].special = 'speed';
+    }
+  }
+
+  function tagSpecials(team) {
+    tagTeamPieces(team);
+  }
+
+  function autoLayoutTeam(team) {
+    const existing = Physics.getPieces();
+    let positions = AI.computeLayout(team, existing);
+    if (state.gameType === 'fun' || isFourWay()) positions = sanitizeAILayout(positions, team);
+    positions.forEach((p, i) => Physics.createPiece(p.x, p.y, team, i));
+    tagTeamPieces(team);
+    state.layoutConfirmed[team] = true;
+  }
+
+  function advanceLayoutPhase() {
+    const next = isFourWay()
+      ? Teams.nextLayoutTeam(state.layoutConfirmed)
+      : (state.layoutTeam === 'black' ? 'white' : 'black');
+    if (next && !state.layoutConfirmed[next]) {
+      startLayoutPhase(next);
+    } else {
+      beginGame();
     }
   }
 
@@ -1358,19 +1460,15 @@ const Game = (() => {
     state._confirmBtnRect = null;
     Renderer.setCameraOverview();
 
-    if (state.mode === '1P' && team === state.aiTeam) {
-      const existing = Physics.getPieces();
-      let positions = AI.computeLayout(team, existing);
-      if (state.gameType === 'fun') positions = sanitizeAILayout(positions, team);
-      positions.forEach((p, i) => Physics.createPiece(p.x, p.y, team, i));
-      tagSpecials(team);
-      state.layoutConfirmed[team] = true;
-      const otherTeam = team === 'black' ? 'white' : 'black';
-      if (!state.layoutConfirmed[otherTeam]) {
-        startLayoutPhase(otherTeam);
-      } else {
-        beginGame();
-      }
+    if (isFourWay() && isAiTeam(team)) {
+      autoLayoutTeam(team);
+      advanceLayoutPhase();
+      return;
+    }
+
+    if (state.mode === '1P' && !isFourWay() && team === state.aiTeam) {
+      autoLayoutTeam(team);
+      advanceLayoutPhase();
       return;
     }
 
@@ -1381,7 +1479,6 @@ const Game = (() => {
         Math.hypot(p.position.x - wx, p.position.y - wy) < R * 2.5
       );
       if (tooClose) return;
-      // 不能放在陷洞或阻块上
       const onHole = Physics.getHoles().some(h =>
         Math.hypot(h.x - wx, h.y - wy) < h.r + R
       );
@@ -1401,29 +1498,25 @@ const Game = (() => {
       return;
     }
     if (state.layoutPlaced < 6) return;
-    tagSpecials(state.layoutTeam);
+    tagTeamPieces(state.layoutTeam);
     state.layoutConfirmed[state.layoutTeam] = true;
     Input.disablePlacement();
     Audio.scrollOpen();
-
-    const otherTeam = state.layoutTeam === 'black' ? 'white' : 'black';
-    if (!state.layoutConfirmed[otherTeam]) {
-      startLayoutPhase(otherTeam);
-    } else {
-      beginGame();
-    }
+    advanceLayoutPhase();
   }
 
   function beginGame() {
     state.phase = 'playing';
     state.subPhase = 'waiting';
-    state.currentTurn = 'black';
+    state.currentTurn = isFourWay() ? Teams.TURN_ORDER[0] : 'black';
     state.hitThisTurn = false;
     state.selectedPiece = null;
     state.movingPiece = null;
     syncOnlinePhysicsMode();
     Renderer.setCameraOverview();
-    if (state.mode === '2P') {
+    if (isFourWay()) {
+      Renderer.setCameraForTurn(state.humanTeam, true);
+    } else if (state.mode === '2P') {
       Renderer.setCameraForTurn('black', true);
     } else if (state.mode === 'ONLINE') {
       Renderer.setCameraForTurn(state.onlineMyTeam, true);
@@ -1433,7 +1526,7 @@ const Game = (() => {
     }
     startTimer();
 
-    if (state.mode === '1P' && state.currentTurn === state.aiTeam) {
+    if (isAiTeam(state.currentTurn)) {
       scheduleAIMove();
     }
   }
@@ -1477,6 +1570,12 @@ const Game = (() => {
     state.movingPiece = null;
     Renderer.setCameraOverview();
 
+    if (isFourWay() && state.eliminated.has(state.currentTurn)) {
+      state.stats[state.currentTurn].combo = 0;
+      nextTurn();
+      return;
+    }
+
     if (state.scoredThisTurn) {
       const s = state.stats[state.currentTurn];
       s.combo++;
@@ -1495,7 +1594,7 @@ const Game = (() => {
     state.hitThisTurn = false;
     state._comboBtnRects = null;
     startTimer();
-    if (state.mode === '1P' && state.currentTurn === state.aiTeam) {
+    if (isAiTeam(state.currentTurn)) {
       scheduleAIMove();
     }
   }
@@ -1510,6 +1609,26 @@ const Game = (() => {
   function nextTurn() {
     state.subPhase = 'waiting';
     state.hitThisTurn = false;
+
+    if (isFourWay()) {
+      let next = Teams.nextTurnTeam(state.currentTurn, state.eliminated);
+      while (next && (!teamHasPieces(next) || !teamHasGeneral(next))) {
+        if (next) state.eliminated.add(next);
+        if (checkFFAWinCondition()) return;
+        next = Teams.nextTurnTeam(next, state.eliminated);
+      }
+      if (!next || checkFFAWinCondition()) return;
+      state.currentTurn = next;
+      state.selectedPiece = null;
+      Renderer.setCameraOverview();
+      if (state.currentTurn === state.humanTeam) {
+        Renderer.setCameraForTurn(state.humanTeam, true);
+      }
+      startTimer();
+      if (isAiTeam(state.currentTurn)) scheduleAIMove();
+      return;
+    }
+
     state.currentTurn = state.currentTurn === 'black' ? 'white' : 'black';
     state.selectedPiece = null;
     if (state.mode === '2P') {
@@ -1520,8 +1639,103 @@ const Game = (() => {
     }
     startTimer();
 
-    if (state.mode === '1P' && state.currentTurn === state.aiTeam) {
+    if (isAiTeam(state.currentTurn)) {
       scheduleAIMove();
+    }
+  }
+
+  function transferTeamPieces(fromTeam, toTeam) {
+    Physics.getPieces().filter(p => p.gameTeam === fromTeam).forEach(p => {
+      p.gameTeam = toTeam;
+      p.label = toTeam;
+    });
+  }
+
+  function removeTeamPieces(team) {
+    Physics.getPieces().filter(p => p.gameTeam === team).forEach(p => Physics.removePiece(p));
+  }
+
+  function showEliminationFlash(fallenTeam, eliminator) {
+    const el = document.getElementById('score-flash');
+    if (!el) return;
+    if (eliminator && eliminator !== fallenTeam) {
+      el.textContent = `${Teams.getName(fallenTeam)} 主将落盘 · ${Teams.getName(eliminator)} 收编`;
+    } else {
+      el.textContent = `${Teams.getName(fallenTeam)} 主将落盘 · 出局`;
+    }
+    el.style.color = '#5a1810';
+    el.style.textShadow = '0 2px 8px rgba(0,0,0,0.35)';
+    el.classList.remove('hidden', 'show');
+    void el.offsetWidth;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2200);
+  }
+
+  function checkFFAWinCondition() {
+    if (!isFourWay()) return false;
+    const alive = Teams.TURN_ORDER.filter(t =>
+      !state.eliminated.has(t) && teamHasPieces(t) && teamHasGeneral(t)
+    );
+    if (alive.length === 1) {
+      declareWinner(alive[0]);
+      return true;
+    }
+    if (alive.length === 0) {
+      declareWinner(state.humanTeam);
+      return true;
+    }
+    return false;
+  }
+
+  function handleGeneralFallFFA(body, fallenTeam) {
+    const fallX = body.position.x;
+    const fallY = body.position.y;
+    const eliminator = state.currentTurn;
+
+    Renderer.addFallAnimation(fallX, fallY, fallenTeam);
+    Physics.removePiece(body);
+    Audio.pieceFall();
+
+    if (!state.eliminated.has(fallenTeam)) {
+      state.eliminated.add(fallenTeam);
+      if (eliminator !== fallenTeam && teamHasPieces(fallenTeam)) {
+        transferTeamPieces(fallenTeam, eliminator);
+        state.scoredThisTurn = true;
+      } else {
+        removeTeamPieces(fallenTeam);
+      }
+      showEliminationFlash(fallenTeam, eliminator !== fallenTeam ? eliminator : null);
+    }
+
+    if (checkFFAWinCondition()) return;
+
+    if (state.eliminated.has(state.currentTurn) && state.subPhase !== 'moving') {
+      nextTurn();
+    }
+  }
+
+  function handlePieceFallFFA(body) {
+    const fallX = body.position.x;
+    const fallY = body.position.y;
+    const fallenTeam = body.gameTeam;
+
+    if (body.isGeneral) {
+      handleGeneralFallFFA(body, fallenTeam);
+      return;
+    }
+
+    if (fallenTeam !== state.currentTurn) {
+      state.scoredThisTurn = true;
+    }
+
+    Renderer.addFallAnimation(fallX, fallY, fallenTeam);
+    Physics.removePiece(body);
+    Audio.pieceFall();
+
+    if (checkFFAWinCondition()) return;
+
+    if (!teamHasPieces(state.currentTurn) && state.subPhase !== 'moving') {
+      nextTurn();
     }
   }
 
@@ -1530,6 +1744,11 @@ const Game = (() => {
     if (!Physics.getPieces().includes(body)) return;
     if (state.phase !== 'playing') return;
     if (state.mode === 'ONLINE' && state.onlineRole === 'guest') return;
+
+    if (isFourWay()) {
+      handlePieceFallFFA(body);
+      return;
+    }
 
     const fallX = body.position.x;
     const fallY = body.position.y;
@@ -1575,7 +1794,9 @@ const Game = (() => {
       clearLocalMatch();
     }
     // 结算寄语只在此时选定一次，避免每帧随机导致高速闪烁
-    const isWinnerHuman = state.mode === '2P' || state.mode === 'ONLINE' || team !== state.aiTeam;
+    const isWinnerHuman = isFourWay()
+      ? team === state.humanTeam
+      : (state.mode === '2P' || state.mode === 'ONLINE' || team !== state.aiTeam);
     const poems = DATA.endingPoems[isWinnerHuman ? 'win' : 'lose'];
     state._endingPoem = poems[Math.floor(Math.random() * poems.length)];
     Audio.victory();
@@ -1585,18 +1806,19 @@ const Game = (() => {
   function scheduleAIMove() {
     const baseSec = [0, 1.6, 2.4][state.aiLevel] || 1.6;
     const delay = baseSec * 1000 + Math.random() * 1000;
+    const aiTeam = state.currentTurn;
     setTimeout(async () => {
-      if (state.phase !== 'playing' || state.currentTurn !== state.aiTeam || state.subPhase !== 'waiting') return;
+      if (state.phase !== 'playing' || state.currentTurn !== aiTeam || state.subPhase !== 'waiting') return;
+      if (!isAiTeam(aiTeam)) return;
       let move = null;
       try {
-        move = AI.computeMove(state.aiLevel, state.aiTeam);
+        move = AI.computeMove(state.aiLevel, aiTeam);
       } catch (err) {
         console.error('AI 计算出错，改用随机弹射：', err);
       }
-      if (state.phase !== 'playing' || state.currentTurn !== state.aiTeam || state.subPhase !== 'waiting') return;
-      // 兜底：AI 无解或异常时，随机弹射一枚己方棋子，确保回合不卡死
+      if (state.phase !== 'playing' || state.currentTurn !== aiTeam || state.subPhase !== 'waiting') return;
       if (!move) {
-        const mine = Physics.getPieces().filter(p => p.gameTeam === state.aiTeam);
+        const mine = Physics.getPieces().filter(p => p.gameTeam === aiTeam);
         if (mine.length === 0) { nextTurn(); return; }
         const piece = mine[Math.floor(Math.random() * mine.length)];
         const ang = Math.random() * Math.PI * 2;
@@ -1617,9 +1839,13 @@ const Game = (() => {
 
   function getTurnBannerText() {
     if (state.phase !== 'playing') return '';
-    const isMyTurn = state.mode === 'ONLINE'
-      ? state.currentTurn === state.onlineMyTeam
-      : !(state.mode === '1P' && state.currentTurn === state.aiTeam);
+    if (isFourWay()) {
+      if (state.subPhase === 'moving') {
+        return isHumanTurn() ? '行棋中…' : `${Teams.getName(state.currentTurn)} 行棋…`;
+      }
+      return isHumanTurn() ? '轮汝出手' : `${Teams.getName(state.currentTurn)} 行棋…`;
+    }
+    const isMyTurn = isHumanTurn();
     if (state.subPhase === 'moving') {
       return isMyTurn ? '行棋中…' : '对方行棋…';
     }
@@ -1640,6 +1866,34 @@ const Game = (() => {
     ctx.closePath();
   }
 
+  function drawFFATeamPanel(ctx, x, y, w, h, teamId) {
+    const eliminated = state.eliminated && state.eliminated.has(teamId);
+    const count = Physics.getPieces().filter(p => p.gameTeam === teamId).length;
+    const hasGen = teamHasGeneral(teamId);
+    const active = state.currentTurn === teamId && state.phase === 'playing';
+
+    ctx.save();
+    ctx.globalAlpha = eliminated ? 0.45 : 1;
+    ctx.fillStyle = active ? 'rgba(255,248,220,0.98)' : 'rgba(245,232,200,0.94)';
+    roundRect2(ctx, x, y, w, h, 5);
+    ctx.fill();
+    ctx.strokeStyle = active ? 'rgba(190,130,30,0.95)' : 'rgba(140,90,20,0.75)';
+    ctx.lineWidth = active ? 2 : 1.2;
+    roundRect2(ctx, x, y, w, h, 5);
+    ctx.stroke();
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = Teams.isDarkTeam(teamId) ? '#0A0402' : '#1A0E04';
+    const fs = Math.max(9, Math.round(h * 0.22));
+    ctx.font = `bold ${fs}px "Noto Serif SC", SimSun, serif`;
+    const label = eliminated ? '出局' : `${count}子`;
+    ctx.fillText(Teams.getName(teamId), x + w / 2, y + h * 0.38);
+    ctx.font = `${Math.max(8, fs - 1)}px "Noto Serif SC", SimSun, serif`;
+    ctx.fillStyle = '#4A3010';
+    ctx.fillText(eliminated ? '—' : (hasGen ? `将·${label}` : label), x + w / 2, y + h * 0.78);
+    ctx.restore();
+  }
+
   function drawHUD() {
     const ctx = getCtx();
     const hud = hudLayoutMetrics();
@@ -1650,7 +1904,15 @@ const Game = (() => {
     } = hud;
     ctx.save();
 
-    if (useSingleRow) {
+    if (isFourWay()) {
+      const gap = mobile ? 4 : 6;
+      const pw = (W - sidePad * 2 - gap * 3) / 4;
+      const ph = panelH;
+      Teams.TURN_ORDER.forEach((teamId, i) => {
+        const x = sidePad + i * (pw + gap);
+        drawFFATeamPanel(ctx, x, panelY, pw, ph, teamId);
+      });
+    } else if (useSingleRow) {
       drawScorePanel(ctx, sidePad, panelY, panelW, panelH, 'black', state.blackScore);
       drawScorePanel(ctx, W - panelW - sidePad, panelY, panelW, panelH, 'white', state.whiteScore);
     } else {
@@ -1676,13 +1938,10 @@ const Game = (() => {
       roundRect2(ctx, bx, turnBarY, barW, turnBarH, 5);
       ctx.stroke();
 
-      ctx.fillStyle = state.currentTurn === 'black' ? '#0A0402' : '#180A02';
+      ctx.fillStyle = '#180A02';
       const textY = turnBarY + turnBarH * 0.64;
 
-      const isMyTurn = state.mode === 'ONLINE'
-        ? state.currentTurn === state.onlineMyTeam
-        : !(state.mode === '1P' && state.currentTurn === state.aiTeam);
-      const showTimer = state.subPhase === 'waiting' && isMyTurn &&
+      const showTimer = state.subPhase === 'waiting' && isHumanTurn() &&
         (state.timerActive || state.timerPaused);
       const showPause = state.timerPaused && state.peerAway;
 
@@ -1695,7 +1954,7 @@ const Game = (() => {
       }
     }
 
-    drawPieceCountIcons(ctx, W, H);
+    if (!isFourWay()) drawPieceCountIcons(ctx, W, H);
     ctx.restore();
   }
 
@@ -1820,7 +2079,8 @@ const Game = (() => {
     const W = viewW(), H = viewH();
     const mobile = isMobileView();
     const team = state.layoutTeam;
-    const isAI = state.mode === '1P' && team === state.aiTeam;
+    const teamLabel = isFourWay() ? Teams.getName(team) : (team === 'black' ? '黑方' : '白方');
+    const isAI = isFourWay() ? false : (state.mode === '1P' && team === state.aiTeam);
     if (isAI) return;
 
     const placed = state.layoutPlaced;
@@ -1831,10 +2091,12 @@ const Game = (() => {
 
     const msg1 = state.onlineWaitingOpponent
       ? '已确认布局，等待对方…'
-      : `${team === 'black' ? '黑方' : '白方'}布局  已置 ${placed} / 6`;
-    const msg2 = state.mode === 'ONLINE'
-      ? '联机盲布局：对方棋子不可见，请在自己区域摆子'
-      : '点击棋盘己方区域放置棋子';
+      : `${teamLabel}布局  已置 ${placed} / 6${placed === 0 ? '（首枚为主将）' : ''}`;
+    const msg2 = isFourWay()
+      ? '在左下角四分之一区域摆子；首枚为主将（皇冠标记）'
+      : (state.mode === 'ONLINE'
+        ? '联机盲布局：对方棋子不可见，请在自己区域摆子'
+        : '点击棋盘己方区域放置棋子');
     const hasBtn = placed >= 6 && !state.onlineWaitingOpponent;
     const panelY = mobile ? 8 : 14;
     const panelH = mobile ? 70 : 88;
@@ -2028,7 +2290,7 @@ const Game = (() => {
     let y = py + padTop;
 
     // ---- 胜负标题（描边 + 朱印点缀）----
-    const winnerName = state.winner === 'black' ? '黑方' : '白方';
+    const winnerName = isFourWay() ? Teams.getName(state.winner) : (state.winner === 'black' ? '黑方' : '白方');
     y += hTitle * 0.8;
     ctx.font = `bold ${titleFs}px "Noto Serif SC", serif`;
     // 标题主体
@@ -2331,6 +2593,7 @@ const Game = (() => {
     update,
     render,
     startGame,
+    startFourWayGame,
     confirmLayout,
     acceptCombo,
     skipCombo,

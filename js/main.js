@@ -225,16 +225,43 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  let selectedPlayMode = 'duel';
+
   function updateModeDesc() {
     const modeEl = document.getElementById('mode-desc');
+    const typeEl = document.getElementById('type-desc');
     if (!modeEl) return;
-    modeEl.textContent = '确认后将进入布局；不熟悉规则请先阅读主菜单「玩法引导」。';
+    if (selectedPlayMode === 'ffa') {
+      if (typeEl) typeEl.textContent = '四方乱战 — 四角布局，主将带皇冠；击落空主将可收编该方全部棋子。';
+      modeEl.textContent = '你在左下角（白方）布局 6 枚，首枚为主将；黑/红/蓝三 AI 自动布阵。';
+    } else {
+      if (typeEl) typeEl.textContent = '趣味局 — 反弹墙、陷洞、阻块与奇兵棋子。';
+      modeEl.textContent = '确认后将进入布局；不熟悉规则请先阅读主菜单「玩法引导」。';
+    }
   }
 
   function startSinglePlayerGame() {
     Game.showScreen('game-screen');
     Game.startGame('1P', 2, Game.state.boardSkin, Game.state.pieceSkin, 'fun');
   }
+
+  function startFourWayGame() {
+    Game.showScreen('game-screen');
+    Game.startFourWayGame(Game.state.boardSkin, Game.state.pieceSkin);
+  }
+
+  function bindModeCards() {
+    document.querySelectorAll('.mode-card').forEach(card => {
+      card.addEventListener('click', () => {
+        Audio.uiClick();
+        selectedPlayMode = card.dataset.mode || 'duel';
+        document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        updateModeDesc();
+      });
+    });
+  }
+  bindModeCards();
 
   document.getElementById('btn-start').addEventListener('click', () => {
     Audio.resume();
@@ -262,7 +289,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-go').addEventListener('click', () => {
     Audio.uiClick();
     Audio.resume();
-    startSinglePlayerGame();
+    if (selectedPlayMode === 'ffa') startFourWayGame();
+    else startSinglePlayerGame();
   });
 
   document.getElementById('btn-mode-back').addEventListener('click', () => {

@@ -379,13 +379,24 @@ const AI = (() => {
 
   function computeLayout(team, existingPieces) {
     const ww = W();
-    let zoneTop, zoneBottom;
-    if (team === 'white') {
+    let zoneTop, zoneBottom, zoneLeft, zoneRight;
+
+    if (typeof Teams !== 'undefined') {
+      const z = Teams.getLayoutZone(team, ww);
+      zoneTop = z.yMin;
+      zoneBottom = z.yMax;
+      zoneLeft = z.xMin;
+      zoneRight = z.xMax;
+    } else if (team === 'white') {
       zoneTop = ww.boardTop + 15;
       zoneBottom = ww.boardTop + ww.boardSize * 0.4;
+      zoneLeft = ww.boardLeft + 20;
+      zoneRight = ww.boardRight - 20;
     } else {
       zoneTop = ww.boardTop + ww.boardSize * 0.6;
       zoneBottom = ww.boardBottom - 15;
+      zoneLeft = ww.boardLeft + 20;
+      zoneRight = ww.boardRight - 20;
     }
 
     const positions = [];
@@ -394,7 +405,7 @@ const AI = (() => {
 
     while (positions.length < 6 && attempts < 1000) {
       attempts++;
-      const x = ww.boardLeft + 20 + Math.random() * (ww.boardSize - 40);
+      const x = zoneLeft + Math.random() * (zoneRight - zoneLeft);
       const y = zoneTop + Math.random() * (zoneBottom - zoneTop);
 
       const tooClose = [...existingPieces, ...positions].some(p => {

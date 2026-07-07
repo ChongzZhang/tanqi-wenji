@@ -660,11 +660,39 @@ const Renderer = (() => {
 
   // ---------- 棋子渲染 ----------
   // 棋子侧壁颜色
-  function pieceSideColor(skin, isBlack) {
+  function pieceSideColor(skin, teamOrIsBlack) {
+    if (typeof Teams !== 'undefined' && typeof teamOrIsBlack === 'string') {
+      return Teams.getSideColors(teamOrIsBlack, skin);
+    }
+    const isBlack = teamOrIsBlack === true || teamOrIsBlack === 'black';
     if (isBlack) return ['rgba(40,40,40,1)', 'rgba(12,12,12,1)'];
     if (skin === 'jade')   return ['rgba(150,196,170,1)', 'rgba(110,156,134,1)'];
     if (skin === 'ivory')  return ['rgba(214,200,168,1)', 'rgba(176,160,124,1)'];
     return ['rgba(196,150,60,1)', 'rgba(140,100,30,1)'];   // lacquer
+  }
+
+  function pieceIsDark(teamId) {
+    if (typeof Teams !== 'undefined') return Teams.isDarkTeam(teamId);
+    return teamId === 'black';
+  }
+
+  function drawGeneralCrown(Pt, R, ellipseK) {
+    ctx.save();
+    const cy = Pt.y - R * 0.15 * ellipseK;
+    const w = R * 0.72;
+    ctx.fillStyle = 'rgba(220,175,40,0.95)';
+    ctx.strokeStyle = 'rgba(120,80,10,0.9)';
+    ctx.lineWidth = Math.max(1, worldToScreenLen(0.8));
+    ctx.beginPath();
+    ctx.moveTo(Pt.x - w * 0.5, cy + R * 0.12 * ellipseK);
+    ctx.lineTo(Pt.x - w * 0.28, cy - R * 0.28 * ellipseK);
+    ctx.lineTo(Pt.x, cy + R * 0.02 * ellipseK);
+    ctx.lineTo(Pt.x + w * 0.28, cy - R * 0.28 * ellipseK);
+    ctx.lineTo(Pt.x + w * 0.5, cy + R * 0.12 * ellipseK);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
   }
 
   // 棋子（3D：侧壁短柱 + 受俯仰压扁的顶面）
@@ -680,7 +708,8 @@ const Renderer = (() => {
     const ellipseK = Math.max(Math.cos(cam.pitch), 0.28);
     const ry = R * ellipseK;
     const sideH = Pb.y - Pt.y;                  // 侧壁屏幕高度
-    const isBlack = body.gameTeam === 'black';
+    const teamId = body.gameTeam;
+    const isBlack = pieceIsDark(teamId);
 
     ctx.save();
 
@@ -695,7 +724,7 @@ const Renderer = (() => {
 
     // 侧壁（仅在有俯仰时可见）
     if (sideH > 1) {
-      const [sl, sd] = pieceSideColor(pieceSkinId, isBlack);
+      const [sl, sd] = pieceSideColor(pieceSkinId, teamId);
       const bandGrad = ctx.createLinearGradient(0, Pt.y, 0, Pb.y);
       bandGrad.addColorStop(0, sl);
       bandGrad.addColorStop(1, sd);
@@ -713,7 +742,11 @@ const Renderer = (() => {
     ctx.save();
     ctx.translate(Pt.x, Pt.y);
     ctx.scale(1, ellipseK);
-    if (pieceSkinId === 'jade')      drawJadePiece(0, 0, R, isBlack);
+    if (teamId === 'red') {
+      drawTintedPiece(0, 0, R, ['#F0A898', '#D07060', '#A03828']);
+    } else if (teamId === 'blue') {
+      drawTintedPiece(0, 0, R, ['#A8C0F0', '#6890D0', '#4060A0']);
+    } else if (pieceSkinId === 'jade')      drawJadePiece(0, 0, R, isBlack);
     else if (pieceSkinId === 'ivory') drawIvoryPiece(0, 0, R, isBlack);
     else                              drawLacquerPiece(0, 0, R, isBlack);
     ctx.restore();
@@ -772,7 +805,29 @@ const Renderer = (() => {
       ctx.restore();
     }
 
+    if (body.isGeneral) {
+      drawGeneralCrown(Pt, R, ellipseK);
+    }
+
     ctx.restore();
+  }
+
+  function drawTintedPiece(cx, cy, R, stops) {
+    const g = ctx.createRadialGradient(cx - R * 0.3, cy - R * 0.3, 0, cx, cy, R);
+    g.addColorStop(0, stops[0]);
+    g.addColorStop(0.5, stops[1]);
+    g.addColorStop(1, stops[2]);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.fill();
+    const hl = ctx.createRadialGradient(cx - R * 0.35, cy - R * 0.35, 0, cx - R * 0.15, cy - R * 0.15, R * 0.5);
+    hl.addColorStop(0, 'rgba(255,255,255,0.45)');
+    hl.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = hl;
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.fill();
   }
 
   function drawJadePiece(cx, cy, R, isBlack) {
@@ -1186,38 +1241,51 @@ const Renderer = (() => {
   }
 
   // ---------- 布局阶段合法区域提示 ----------
-  function drawLayoutZone(team) {
+  function drawLayoutZone(team, matchMode) {
     const W = Physics.W;
-    let zoneTop, zoneBottom;
-    if (team === 'black') {
+    let zoneTop, zoneBottom, zoneLeft, zoneRight;
+
+    if (matchMode === '4FFA' && typeof Teams !== 'undefined') {
+      const z = Teams.getLayoutZone(team, W);
+      zoneTop = z.yMin;
+      zoneBottom = z.yMax;
+      zoneLeft = z.xMin;
+      zoneRight = z.xMax;
+    } else if (team === 'black') {
       zoneTop = W.boardTop + W.boardSize * 0.55;
       zoneBottom = W.boardBottom;
+      zoneLeft = W.boardLeft;
+      zoneRight = W.boardRight;
     } else {
       zoneTop = W.boardTop;
       zoneBottom = W.boardTop + W.boardSize * 0.45;
+      zoneLeft = W.boardLeft;
+      zoneRight = W.boardRight;
     }
 
-    // 沿盘面投影四角（含曲面高度），细分各边以贴合丰腹起伏
     const pts = [];
     const N = 10;
     const lerp = (a, b, t) => a + (b - a) * t;
-    for (let i = 0; i <= N; i++) pts.push(worldToScreen(lerp(W.boardLeft, W.boardRight, i/N), zoneTop));
-    for (let i = 1; i <= N; i++) pts.push(worldToScreen(W.boardRight, lerp(zoneTop, zoneBottom, i/N)));
-    for (let i = 1; i <= N; i++) pts.push(worldToScreen(lerp(W.boardRight, W.boardLeft, i/N), zoneBottom));
-    for (let i = 1; i <= N; i++) pts.push(worldToScreen(W.boardLeft, lerp(zoneBottom, zoneTop, i/N)));
+    for (let i = 0; i <= N; i++) pts.push(worldToScreen(lerp(zoneLeft, zoneRight, i/N), zoneTop));
+    for (let i = 1; i <= N; i++) pts.push(worldToScreen(zoneRight, lerp(zoneTop, zoneBottom, i/N)));
+    for (let i = 1; i <= N; i++) pts.push(worldToScreen(lerp(zoneRight, zoneLeft, i/N), zoneBottom));
+    for (let i = 1; i <= N; i++) pts.push(worldToScreen(zoneLeft, lerp(zoneBottom, zoneTop, i/N)));
+
+    const style = (matchMode === '4FFA' && typeof Teams !== 'undefined')
+      ? Teams.getLayoutStyle(team)
+      : {
+        fill: team === 'black' ? 'rgba(30,50,30,0.12)' : 'rgba(220,240,220,0.15)',
+        stroke: team === 'black' ? 'rgba(40,80,40,0.4)' : 'rgba(180,220,180,0.5)',
+      };
 
     ctx.save();
     ctx.beginPath();
     pts.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
     ctx.closePath();
-    ctx.fillStyle = team === 'black'
-      ? 'rgba(30,50,30,0.12)'
-      : 'rgba(220,240,220,0.15)';
+    ctx.fillStyle = style.fill;
     ctx.fill();
 
-    ctx.strokeStyle = team === 'black'
-      ? 'rgba(40,80,40,0.4)'
-      : 'rgba(180,220,180,0.5)';
+    ctx.strokeStyle = style.stroke;
     ctx.lineWidth = worldToScreenLen(1.5);
     ctx.setLineDash([worldToScreenLen(5), worldToScreenLen(4)]);
     ctx.stroke();
@@ -1302,7 +1370,7 @@ const Renderer = (() => {
     // 布局区域
     if (gameState.phase === 'layout') {
       const layoutTeam = gameState.mode === 'ONLINE' ? gameState.onlineMyTeam : gameState.layoutTeam;
-      drawLayoutZone(layoutTeam);
+      drawLayoutZone(layoutTeam, gameState.matchMode);
     }
 
     // 趣味局：陷洞贴在盘面上，需在棋子之前绘制

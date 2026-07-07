@@ -56,16 +56,15 @@ const Physics = (() => {
     Matter.Events.on(engine, 'collisionStart', e => {
       e.pairs.forEach(pair => {
         const { bodyA, bodyB } = pair;
-        const isPiece = b => b.label === 'black' || b.label === 'white' || b.label === 'obstacle';
+        const isPiece = b => b.gameTeam && (b.label === 'obstacle' || b.label === b.gameTeam);
         const isBarrier = b => b.label === 'wall' || b.label === 'block';
         if (isPiece(bodyA) && isPiece(bodyB)) {
           const vel = Math.hypot(bodyA.velocity.x, bodyA.velocity.y);
           if (onCollisionCb) onCollisionCb(bodyA.position, vel, bodyA, bodyB);
         } else if (isBarrier(bodyA) || isBarrier(bodyB)) {
-          // 棋子撞墙/块：触发反馈
           const piece = isBarrier(bodyA) ? bodyB : bodyA;
           const barrier = isBarrier(bodyA) ? bodyA : bodyB;
-          if (piece.label === 'black' || piece.label === 'white' || piece.label === 'obstacle') {
+          if (piece.gameTeam || piece.label === 'obstacle') {
             const vel = Math.hypot(piece.velocity.x, piece.velocity.y);
             // 阻块：撞上后能量被削弱（下一帧对反弹后速度做衰减）
             if (barrier.label === 'block') piece._blockDamp = true;

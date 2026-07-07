@@ -273,13 +273,19 @@ const Input = (() => {
   function enablePlacement(team, cb) {
     _onPlacement = (wx, wy) => {
       const ww = Physics.W;
+      if (typeof Teams !== 'undefined' && Game.state.matchMode === '4FFA') {
+        if (Teams.isInLayoutZone(team, wx, wy, ww)) cb(wx, wy);
+        return;
+      }
       let zTop, zBot;
-      if (team === 'black') {
+      if (team === 'white') {
+        zTop = ww.boardTop + 15;
+        zBot = ww.boardTop + ww.boardSize * 0.45;
+      } else if (team === 'black') {
         zTop = ww.boardTop + ww.boardSize * 0.55;
         zBot = ww.boardBottom - 12;
       } else {
-        zTop = ww.boardTop + 12;
-        zBot = ww.boardTop + ww.boardSize * 0.45;
+        return;
       }
       if (wx > ww.boardLeft + 12 && wx < ww.boardRight - 12 &&
           wy > zTop && wy < zBot) {

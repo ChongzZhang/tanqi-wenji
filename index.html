@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>弹棋问机 · 联机对战</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/style.css?v=7">
+  <link rel="stylesheet" href="css/style.css?v=8">
 </head>
 <body>
 
@@ -32,7 +32,18 @@
 <!-- ============ 模式选择 ============ -->
 <div id="mode-select" class="screen hidden">
   <div class="panel">
-    <h2 class="panel-title">开始对弈</h2>
+    <h2 class="panel-title">选择玩法</h2>
+
+    <div class="mode-cards">
+      <button type="button" id="mode-card-duel" class="mode-card active" data-mode="duel">
+        <span class="mode-card-title">单挑大师</span>
+        <span class="mode-card-desc">1 人对 1 位 AI · 趣味地形与奇兵</span>
+      </button>
+      <button type="button" id="mode-card-ffa" class="mode-card" data-mode="ffa">
+        <span class="mode-card-title">四方乱战</span>
+        <span class="mode-card-desc">1 人对 3 AI · 主将淘汰 · 收编残局</span>
+      </button>
+    </div>
 
     <p class="ai-desc" id="type-desc">趣味局 — 反弹墙、陷洞、阻块与奇兵棋子。</p>
     <p class="ai-desc" id="mode-desc">确认后将进入布局；不熟悉规则请先阅读主菜单「玩法引导」。</p>
@@ -168,16 +179,17 @@
 
 <script src="js/lib/matter.min.js"></script>
 <script src="js/data.js?v=3"></script>
+<script src="js/teams.js?v=1"></script>
 <script src="js/audio.js"></script>
 <script src="js/guide-art.js?v=1"></script>
 <script src="js/guide.js?v=2"></script>
-<script src="js/physics.js?v=12"></script>
-<script src="js/renderer.js?v=11"></script>
-<script src="js/input.js?v=5"></script>
-<script src="js/ai.js?v=13"></script>
+<script src="js/physics.js?v=13"></script>
+<script src="js/renderer.js?v=12"></script>
+<script src="js/input.js?v=6"></script>
+<script src="js/ai.js?v=14"></script>
 <script src="js/online.js?v=18"></script>
-<script src="js/game.js?v=44"></script>
-<script src="js/main.js?v=25"></script>
+<script src="js/game.js?v=45"></script>
+<script src="js/main.js?v=26"></script>
 
 </body>
 </html>
