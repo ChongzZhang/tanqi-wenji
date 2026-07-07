@@ -6,10 +6,11 @@ const Teams = (() => {
   const AI_TEAMS = ['black', 'red', 'blue'];
   const HUMAN_TEAM = 'white';
   const PIECES_PER_TEAM = 6;
-  /** 四国混战：边界反弹墙总长 +30%，阻块等 +40%，障碍 ×3，陷洞不变 */
+  /** 四国混战：边界反弹墙总长 +30%，阻块等 +40%，陷洞不变 */
   const FFA_WALL_LEN_MULT = 1.3;
   const FFA_OBJECT_MULT = 1.4;
-  const FFA_OBSTACLE_MULT = 3;
+  /** 主将质量倍率（半径不变，惯性更大、更难推动） */
+  const GENERAL_MASS_MULT = 1.2;
   /** 四国混战 AI 固定使用大师（id=2） */
   const MASTER_AI_LEVEL = 2;
   /** 菱形视角偏航：白方(左下象限)始终在屏幕下方 */
@@ -164,7 +165,7 @@ const Teams = (() => {
     PIECES_PER_TEAM,
     FFA_WALL_LEN_MULT,
     FFA_OBJECT_MULT,
-    FFA_OBSTACLE_MULT,
+    GENERAL_MASS_MULT,
     emptyKillByVictim,
     MASTER_AI_LEVEL,
     FFA_CAMERA_YAW,

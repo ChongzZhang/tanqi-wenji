@@ -209,9 +209,8 @@ const GuideArt = (() => {
         <g transform="translate(160,150) rotate(-45) translate(-160,-150)">
           ${board(`
             <circle cx="100" cy="120" r="16" fill="#888" stroke="#555" stroke-width="2"/>
-            <circle cx="130" cy="145" r="16" fill="#888" stroke="#555" stroke-width="2"/>
             <circle cx="190" cy="170" r="16" fill="#888" stroke="#555" stroke-width="2"/>
-            <text x="160" y="118" text-anchor="middle" font-size="8" fill="#555" font-family="serif">障碍 ×3</text>
+            <text x="160" y="118" text-anchor="middle" font-size="8" fill="#555" font-family="serif">障碍</text>
             <rect x="32" y="130" width="56" height="8" rx="2" fill="#5a9a5a" stroke="#2a6a2a"/>
             <rect x="210" y="95" width="40" height="8" rx="2" fill="#5a9a5a" stroke="#2a6a2a"/>
             <rect x="175" y="200" width="24" height="24" rx="3" fill="#7a6a58" stroke="#4a3a28" transform="rotate(8 187 212)"/>

@@ -178,7 +178,7 @@ const Game = (() => {
     Physics.onCollision((pos, vel, bodyA, bodyB) => {
       if (state.mode === 'ONLINE') return;
       const intensity = Math.min(vel / 15, 1);
-      Renderer.addCollisionParticles(pos.x, pos.y, intensity);
+      Renderer.addCollisionParticles(pos.x, pos.y, intensity, isMobileView());
       Audio.pieceHit(intensity, state.pieceSkin);
 
       if (bodyA.gameTeam && bodyB.gameTeam && bodyA.gameTeam !== bodyB.gameTeam) {
@@ -192,7 +192,7 @@ const Game = (() => {
     Physics.onWallHit((pos, vel, kind) => {
       if (state.mode === 'ONLINE') return;
       const intensity = Math.min(vel / 15, 1);
-      Renderer.addCollisionParticles(pos.x, pos.y, intensity * 0.7);
+      Renderer.addCollisionParticles(pos.x, pos.y, intensity * 0.7, isMobileView());
       Audio.pieceHit(intensity * 0.6, state.pieceSkin);
     });
 
@@ -237,7 +237,11 @@ const Game = (() => {
   }
 
   function resizeCanvas() {
-    const cap = state.mode === 'ONLINE' ? 2.0 : 2.5;
+    const mobile = isMobileView();
+    const touch = typeof window !== 'undefined' &&
+      ('ontouchstart' in window || (navigator.maxTouchPoints || 0) > 0);
+    let cap = state.mode === 'ONLINE' ? 2.0 : 2.5;
+    if (mobile || touch) cap = Math.min(cap, 1.5);
     const dpr = Math.min(window.devicePixelRatio || 1, cap);
     canvas._dpr = dpr;
     const w = Math.round(window.visualViewport?.width || window.innerWidth);
@@ -746,7 +750,7 @@ const Game = (() => {
 
     if (state.phase === 'playing') {
       const isOnline = state.mode === 'ONLINE';
-      if (!isOnline) {
+      if (!isOnline && state.subPhase === 'moving') {
         Physics.step(dt * 1000);
       }
       /* 联机行棋：服务端快照插值显示，不算本地碰撞 */
@@ -795,10 +799,16 @@ const Game = (() => {
     }
 
     if (state.phase === 'layout') {
-      if (state.mode !== 'ONLINE') {
-        Physics.step(dt * 1000);
-      }
+      /* 布局阶段棋子静止，跳过物理以减轻移动端负担 */
     }
+  }
+
+  function isGameScreenVisible() {
+    return state._visibleScreen === 'game-screen';
+  }
+
+  function resetFrameClock(ts) {
+    state.lastTime = ts;
   }
 
   function hudLayoutMetrics() {
@@ -857,6 +867,7 @@ const Game = (() => {
   function render() {
     if (state.phase === 'menu') return;
 
+    state.mobileLite = isMobileView();
     syncViewportInsets();
     Renderer.render(state);
 
@@ -905,10 +916,7 @@ const Game = (() => {
   }
 
   function setupRandomBoard() {
-    const ffa = isFourWay();
-    const obsCount = ffa
-      ? ffaScaledCount(1, 2, Teams.FFA_OBSTACLE_MULT)
-      : 1 + Math.floor(Math.random() * 3);
+    const obsCount = 1 + Math.floor(Math.random() * 3);
     const ww = Physics.W;
     const placed = [];
     for (let i = 0; i < obsCount; i++) {
@@ -1471,6 +1479,7 @@ const Game = (() => {
       if (pcs.length >= 1) pcs[0].isGeneral = true;
       if (pcs.length >= 2) pcs[pcs.length - 2].special = 'curve';
       if (pcs.length >= 1) pcs[pcs.length - 1].special = 'speed';
+      pcs.forEach(p => Physics.applyPieceMass(p));
       return;
     }
     if (state.gameType !== 'fun') return;
@@ -2739,6 +2748,8 @@ const Game = (() => {
     init,
     update,
     render,
+    isGameScreenVisible,
+    resetFrameClock,
     startGame,
     startFourWayGame,
     confirmLayout,

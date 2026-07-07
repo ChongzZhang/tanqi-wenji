@@ -1240,6 +1240,7 @@ const Renderer = (() => {
 
   function updateAndDrawParticles(dt) {
     particles = particles.filter(p => p.life > 0);
+    if (particles.length > 80) particles.length = 80;
     particles.forEach(p => {
       p.wx += p.vx * dt;
       p.wy += p.vy * dt;
@@ -1408,7 +1409,8 @@ const Renderer = (() => {
     drawBackground(gameState.boardSkin);
 
     const dt = gameState.dt || 0.016;
-    const liteRender = gameState.mode === 'ONLINE' && gameState.subPhase === 'moving';
+    const liteRender = (gameState.mode === 'ONLINE' && gameState.subPhase === 'moving')
+      || !!gameState.mobileLite;
 
     drawBoard(gameState.boardSkin, liteRender);
 

@@ -46,6 +46,22 @@ const Physics = (() => {
   const CURVE_FORCE_SCALE = 0.00004;
   const SPEED_MULT = 1.5;          // 疾行棋速度倍率
 
+  function generalMassMult() {
+    return (typeof Teams !== 'undefined' && Teams.GENERAL_MASS_MULT) || 1.2;
+  }
+
+  function applyPieceMass(body) {
+    if (!body || body.label === 'obstacle') return;
+    const m = body.isGeneral ? generalMassMult() : 1.0;
+    Matter.Body.setMass(body, m);
+  }
+
+  function flingSpeedScale(body) {
+    const speedMult = body.special === 'speed' ? SPEED_MULT : 1;
+    const generalMult = body.isGeneral ? (1 / generalMassMult()) : 1;
+    return W.FLING_SPEED_SCALE * speedMult * generalMult;
+  }
+
   // ---------- 初始化 ----------
   function init() {
     engine = Matter.Engine.create({ gravity: { x: 0, y: 0 } });
@@ -221,6 +237,8 @@ const Physics = (() => {
     });
     body.gameTeam = team;
     body.slot = slot != null ? slot : 0;
+    body.isGeneral = false;
+    applyPieceMass(body);
     Matter.World.add(world, body);
     allPieces.push(body);
     return body;
@@ -304,9 +322,7 @@ const Physics = (() => {
   // ---------- 弹射棋子 ----------
   // 直接设置初速度（而非 applyForce），避免下一帧静摩擦逻辑在力转为速度前将其清零。
   function flingPiece(body, fx, fy) {
-    // 疾行棋（最后一枚）：初速度 1.5 倍
-    const mult = body.special === 'speed' ? SPEED_MULT : 1;
-    const s = W.FLING_SPEED_SCALE * mult;
+    const s = flingSpeedScale(body);
     body.force.x = 0;
     body.force.y = 0;
     Matter.Body.setVelocity(body, { x: fx * s, y: fy * s });
@@ -438,6 +454,7 @@ const Physics = (() => {
       body.slot = slot != null ? slot : 0;
       body.special = special || null;
       body.isGeneral = !!isGeneral;
+      applyPieceMass(body);
       Matter.World.add(sbWorld, body);
       sbPieces.push(body);
       return body;
@@ -511,8 +528,7 @@ const Physics = (() => {
     }
 
     function sbFling(body, fx, fy) {
-      const mult = body.special === 'speed' ? SPEED_MULT : 1;
-      const s = W.FLING_SPEED_SCALE * mult;
+      const s = flingSpeedScale(body);
       body.force.x = 0;
       body.force.y = 0;
       Matter.Body.setVelocity(body, { x: fx * s, y: fy * s });
@@ -1089,6 +1105,7 @@ const Physics = (() => {
     extrapolatePositions,
     extrapolateWithDamping,
     createPiece,
+    applyPieceMass,
     removePiece,
     createObstacle,
     clearObstacles,

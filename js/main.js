@@ -7,8 +7,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function loop(ts) {
     try {
-      Game.update(ts);
-      Game.render();
+      if (Game.isGameScreenVisible()) {
+        Game.update(ts);
+        Game.render();
+      } else {
+        Game.resetFrameClock(ts);
+      }
     } catch (err) {
       console.error('游戏主循环异常：', err);
     }
