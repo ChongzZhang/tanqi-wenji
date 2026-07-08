@@ -319,7 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
     Game.showScreen('mode-select');
     updateModeDesc();
     if (typeof ModeGuide !== 'undefined') ModeGuide.setMode(selectedPlayMode);
-    showModeView(isModeSelectMobile() ? 'guide' : 'play');
+    showModeView('play');
   });
 
   document.getElementById('btn-culture').addEventListener('click', () => {
