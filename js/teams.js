@@ -9,7 +9,7 @@ const Teams = (() => {
   /** 四国混战：边界反弹墙总长 +30%，阻块等 +40%，陷洞不变 */
   const FFA_WALL_LEN_MULT = 1.3;
   const FFA_OBJECT_MULT = 1.4;
-  /** 主将质量倍率（半径不变，惯性更大、更难推动） */
+  /** 主将质量倍率（半径不变，碰撞惯性更大） */
   const GENERAL_MASS_MULT = 2.0;
   /** 主将弹射初速倍率（相对普通棋子，越小越难弹远） */
   const GENERAL_FLING_MULT = 0.52;

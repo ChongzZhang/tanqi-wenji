@@ -63,8 +63,30 @@ const Physics = (() => {
     if (!body || body.label === 'obstacle') return;
     const m = body.isGeneral ? generalMassMult() : 1.0;
     Matter.Body.setMass(body, m);
-    body.friction = body.isGeneral ? 0.014 : 0.005;
-    body.frictionAir = body.isGeneral ? 0.014 : 0;
+    body.friction = 0.005;
+    body.frictionAir = 0;
+  }
+
+  function initPieceBody(body, team, slot, special, isGeneral) {
+    body.gameTeam = team;
+    body.slot = slot != null ? slot : 0;
+    body.special = special || null;
+    body.isGeneral = !!isGeneral;
+    applyPieceMass(body);
+    return body;
+  }
+
+  function applyBlockDamp(body) {
+    if (!body._blockDamp) return;
+    Matter.Body.setVelocity(body, { x: body.velocity.x * 0.55, y: body.velocity.y * 0.55 });
+    body._blockDamp = false;
+  }
+
+  function applyPreStepForces(bodies) {
+    bodies.forEach((p) => {
+      applyBlockDamp(p);
+      applyFieldForces(p);
+    });
   }
 
   function flingSpeedScale(body) {
@@ -103,14 +125,7 @@ const Physics = (() => {
 
     // 每帧更新前施加自定义力
     Matter.Events.on(engine, 'beforeUpdate', () => {
-      [...allPieces, ...obstacles].forEach(p => {
-        // 阻块反弹后削弱能量（在上一帧已完成反弹解算的速度上衰减）
-        if (p._blockDamp) {
-          Matter.Body.setVelocity(p, { x: p.velocity.x * 0.55, y: p.velocity.y * 0.55 });
-          p._blockDamp = false;
-        }
-        applyFieldForces(p);
-      });
+      applyPreStepForces([...allPieces, ...obstacles]);
     });
 
     // 让 runner 驱动 engine（不用 Matter.Runner.run，改为手动步进以便我们控制）
@@ -239,17 +254,14 @@ const Physics = (() => {
   // ---------- 创建棋子 ----------
   function createPiece(wx, wy, team, slot) {
     const body = Matter.Bodies.circle(wx, wy, W.pieceRadius, {
-      label: team,               // 'black' | 'white'
-      restitution: 0.72,         // 弹性系数
+      label: team,
+      restitution: 0.72,
       friction: 0.005,
       frictionAir: 0,
       mass: 1.0,
       density: 0.002,
     });
-    body.gameTeam = team;
-    body.slot = slot != null ? slot : 0;
-    body.isGeneral = false;
-    applyPieceMass(body);
+    initPieceBody(body, team, slot, null, false);
     Matter.World.add(world, body);
     allPieces.push(body);
     return body;
@@ -392,56 +404,6 @@ const Physics = (() => {
       return false;
     }
 
-    function sbApplyFieldForces(body) {
-      if (body.isStatic) return;
-
-      const vel = body.velocity;
-      const speed = Math.hypot(vel.x, vel.y);
-      if (speed < W.REST_SPEED) {
-        Matter.Body.setVelocity(body, { x: 0, y: 0 });
-        Matter.Body.setAngularVelocity(body, 0);
-        body.force.x = 0;
-        body.force.y = 0;
-        return;
-      }
-
-      const pos = body.position;
-
-      {
-        const dx = pos.x - W.centerX;
-        const dy = pos.y - W.centerY;
-        const dist = Math.hypot(dx, dy);
-        if (dist < W.domeRadius && dist > 0.5) {
-          const slope = 2 * dist / (W.domeRadius * W.domeRadius);
-          const fMag = W.DOME_FORCE_SCALE * slope * fieldForceMass(body);
-          Matter.Body.applyForce(body, pos, { x: (dx / dist) * fMag, y: (dy / dist) * fMag });
-        }
-      }
-
-      for (const cc of CORNER_CENTERS) {
-        const dx = pos.x - cc.x;
-        const dy = pos.y - cc.y;
-        const dist = Math.hypot(dx, dy);
-        if (dist < W.cornerBulgeRadius && dist > 0.5) {
-          const slope = 2 * dist / (W.cornerBulgeRadius * W.cornerBulgeRadius);
-          const fMag = W.CORNER_FORCE_SCALE * slope * fieldForceMass(body);
-          Matter.Body.applyForce(body, pos, { x: (dx / dist) * fMag, y: (dy / dist) * fMag });
-        }
-      }
-
-      if (body.special === 'curve' && speed > W.REST_SPEED) {
-        const nx = vel.y / speed;
-        const ny = -vel.x / speed;
-        const fMag = CURVE_FORCE_SCALE * speed * fieldForceMass(body);
-        Matter.Body.applyForce(body, pos, { x: nx * fMag, y: ny * fMag });
-      }
-
-      Matter.Body.setVelocity(body, {
-        x: vel.x * W.DAMPING,
-        y: vel.y * W.DAMPING,
-      });
-    }
-
     function sbRemovePiece(body) {
       Matter.World.remove(sbWorld, body);
       sbPieces = sbPieces.filter((b) => b !== body);
@@ -461,11 +423,7 @@ const Physics = (() => {
         mass: 1.0,
         density: 0.002,
       });
-      body.gameTeam = team;
-      body.slot = slot != null ? slot : 0;
-      body.special = special || null;
-      body.isGeneral = !!isGeneral;
-      applyPieceMass(body);
+      initPieceBody(body, team, slot, special, isGeneral);
       Matter.World.add(sbWorld, body);
       sbPieces.push(body);
       return body;
@@ -614,13 +572,7 @@ const Physics = (() => {
     });
 
     Matter.Events.on(sbEngine, 'beforeUpdate', () => {
-      [...sbPieces, ...sbObstacles].forEach((p) => {
-        if (p._blockDamp) {
-          Matter.Body.setVelocity(p, { x: p.velocity.x * 0.55, y: p.velocity.y * 0.55 });
-          p._blockDamp = false;
-        }
-        sbApplyFieldForces(p);
-      });
+      applyPreStepForces([...sbPieces, ...sbObstacles]);
     });
 
     function loadFromGame() {
@@ -678,11 +630,12 @@ const Physics = (() => {
       });
       sbPieces.filter((p) => p.gameTeam === myTeam).forEach((mp) => {
         const em = sbEdgeMargin(mp.position);
-        if (em < W.pieceRadius * 2.5) score -= (W.pieceRadius * 2.5 - em) * 15;
-        if (sbHoles.length > 0) {
-          const hd = sbHoleDanger(mp.position);
-          if (hd < W.pieceRadius * 2) score -= (W.pieceRadius * 2 - hd) * 12;
-        }
+        const holePen = sbHoles.length > 0 ? sbHoleDanger(mp.position) : Infinity;
+        let risk = 0;
+        if (em < W.pieceRadius * 2.5) risk += (W.pieceRadius * 2.5 - em) * 15;
+        if (holePen < W.pieceRadius * 2) risk += (W.pieceRadius * 2 - holePen) * 12;
+        if (mp.isGeneral) risk *= 1.35;
+        score -= risk;
       });
 
       return score;
@@ -732,7 +685,8 @@ const Physics = (() => {
       let worstSlot = victims[0] ? victims[0].slot : null;
       let worstVuln = Infinity;
       victims.forEach((v) => {
-        const vuln = sbEdgeMargin(v.position) + sbHoleDanger(v.position) * 0.6;
+        let vuln = sbEdgeMargin(v.position) + sbHoleDanger(v.position) * 0.6;
+        if (v.isGeneral) vuln -= W.pieceRadius * 2.5;
         if (vuln < worstVuln) {
           worstVuln = vuln;
           worstSlot = v.slot;
@@ -927,6 +881,7 @@ const Physics = (() => {
       const quickBefore = quickThreatMetric(defenderTeam, protectSlot);
 
       const threatBefore = knownThreatBefore || assessThreatOnCurrentBoard(defenderTeam);
+      loadFromGame();
       const ourResult = runShotSimulation(defenderTeam, slot, fx, fy);
       const threatAfter = assessThreatOnCurrentBoard(defenderTeam);
       const quickAfter = quickThreatMetric(defenderTeam, protectSlot);
